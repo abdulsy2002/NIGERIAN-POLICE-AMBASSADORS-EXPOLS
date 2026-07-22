@@ -1,0 +1,324 @@
+/* src/app/reunion/reunion.css */
+
+/* ===== HERO ===== */
+.hero-reunion {
+  min-height: 90vh;
+  display: flex;
+  align-items: center;
+  text-align: center;
+  color: var(--white);
+  background:
+    linear-gradient(rgba(0, 25, 50, 0.75), rgba(0, 25, 50, 0.75)),
+    url('/image (278).jpg') center/cover no-repeat;
+}
+
+.hero-content {
+  max-width: 850px;
+  margin: auto;
+}
+
+.badge {
+  display: inline-block;
+  background: rgba(255,255,255,0.15);
+  padding: 10px 22px;
+  border-radius: 50px;
+  margin-bottom: 25px;
+  font-weight: 600;
+  backdrop-filter: blur(10px);
+  color: var(--secondary);
+}
+
+.hero-content h1 {
+  font-size: 4rem;
+  font-weight: 800;
+  margin-bottom: 20px;
+}
+
+.hero-content p {
+  font-size: 1.1rem;
+  margin-bottom: 35px;
+  opacity: 0.9;
+}
+
+.hero-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+/* ===== EVENT DETAILS ===== */
+.details-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 25px;
+  margin-bottom: 80px;
+}
+
+.detail-card {
+  background: var(--white);
+  padding: 40px 25px;
+  border-radius: 20px;
+  text-align: center;
+  box-shadow: var(--shadow);
+  transition: var(--transition);
+}
+
+.detail-card:hover {
+  transform: translateY(-8px);
+}
+
+.detail-card i {
+  font-size: 2rem;
+  color: var(--primary);
+  margin-bottom: 20px;
+  display: block;
+}
+
+.detail-card h3 {
+  margin-bottom: 10px;
+  color: var(--text);
+}
+
+.detail-card p {
+  color: var(--text-light);
+  font-size: 0.95rem;
+}
+
+/* ===== CTA BOX ===== */
+.cta-box {
+  margin-top: 60px;
+  background: var(--primary);
+  color: var(--white);
+  padding: 50px;
+  border-radius: 25px;
+  text-align: center;
+}
+
+.cta-box h3 {
+  font-size: 2rem;
+  margin-bottom: 15px;
+  color: var(--white);
+}
+
+.cta-box p {
+  margin-bottom: 15px;
+  opacity: 0.9;
+}
+
+/* ===== SCHEDULE ===== */
+.schedule-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 30px;
+}
+
+.schedule-day {
+  background: rgba(255,255,255,0.08);
+  padding: 35px;
+  border-radius: 20px;
+  backdrop-filter: blur(10px);
+  color: var(--white);
+}
+
+.schedule-day h3 {
+  margin-bottom: 30px;
+  font-size: 1.6rem;
+  color: var(--white);
+  border-bottom: 2px solid var(--secondary);
+  padding-bottom: 15px;
+}
+
+.schedule-day span {
+  font-size: 1rem;
+  opacity: 0.8;
+  color: var(--secondary);
+}
+
+.schedule-item {
+  display: flex;
+  gap: 15px;
+  margin-bottom: 25px;
+  color: var(--white);
+}
+
+.time {
+  font-weight: 700;
+  color: var(--secondary);
+  min-width: 80px;
+}
+
+.info h4 {
+  margin-bottom: 5px;
+  color: var(--white);
+}
+
+.info p {
+  font-size: 0.9rem;
+  opacity: 0.85;
+}
+
+/* ===== REGISTER SECTION ===== */
+.register-container {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 50px;
+  align-items: start;
+}
+
+.register-info h2 {
+  font-size: 2.5rem;
+  margin-bottom: 20px;
+  color: var(--primary);
+}
+
+.price-box {
+  margin: 35px 0;
+}
+
+.price {
+  background: var(--white);
+  padding: 20px;
+  border-radius: 18px;
+  margin-bottom: 20px;
+  box-shadow: var(--shadow);
+  text-align: center;
+}
+
+.amount {
+  display: block;
+  font-size: 2rem;
+  font-weight: 800;
+  color: var(--primary);
+}
+
+.label {
+  color: var(--text-light);
+  font-size: 0.9rem;
+}
+
+.secure-note {
+  color: var(--text-light);
+  font-size: 0.9rem;
+}
+
+/* ===== FORM ===== */
+.register-form {
+  background: var(--white);
+  padding: 40px;
+  border-radius: 25px;
+  box-shadow: var(--shadow);
+}
+
+.register-form h3 {
+  margin-bottom: 30px;
+  color: var(--primary);
+  font-size: 1.8rem;
+}
+
+.form-group {
+  margin-bottom: 22px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.form-group input,
+.form-group select {
+  width: 100%;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  outline: none;
+  font-size: 1rem;
+  transition: var(--transition);
+  font-family: inherit;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 4px rgba(0,51,102,0.1);
+}
+
+.btn-block {
+  width: 100%;
+  border: none;
+  cursor: pointer;
+  font-size: 1rem;
+}
+
+/* ===== FAQ ===== */
+.faq-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 30px;
+}
+
+.faq-item {
+  background: var(--light);
+  padding: 35px;
+  border-radius: 20px;
+  transition: var(--transition);
+}
+
+.faq-item:hover {
+  transform: translateY(-6px);
+}
+
+.faq-item h3 {
+  margin-bottom: 15px;
+  color: var(--primary);
+  font-size: 1.3rem;
+}
+
+.faq-item p {
+  color: var(--text-light);
+  line-height: 1.7;
+}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 1100px) {
+  .details-grid,
+  .schedule-grid,
+  .faq-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .register-container {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .hero-content h1 {
+    font-size: 2.7rem;
+  }
+  .details-grid,
+  .schedule-grid,
+  .faq-grid {
+    grid-template-columns: 1fr;
+  }
+  .hero-buttons {
+    flex-direction: column;
+    align-items: center;
+  }
+  .cta-box {
+    padding: 35px 25px;
+  }
+  .register-form {
+    padding: 30px 20px;
+  }
+}
+
+@media (max-width: 480px) {
+  .hero-content h1 {
+    font-size: 2.1rem;
+  }
+  .register-info h2 {
+    font-size: 2rem;
+  }
+}

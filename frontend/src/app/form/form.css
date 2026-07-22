@@ -1,0 +1,237 @@
+/* src/app/form/form.css */
+
+/* ===== BODY ===== */
+
+  /* Note: In Next.js, body styles are usually in globals.css, 
+     but we can override it for this specific page by wrapping the content */
+
+
+/* ===== PAGE WRAPPER ===== */
+.form-page-wrapper {
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  background: linear-gradient(135deg, #0f172a, #1e3a8a);
+  color: #333;
+  min-height: 100vh;
+  padding: 40px 15px;
+}
+
+/* ===== CONTAINER ===== */
+.container {
+  max-width: 950px;
+  margin: auto;
+  background: #ffffff;
+  border-radius: 20px;
+  padding: 40px;
+  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.2);
+  animation: fadeIn 0.5s ease;
+}
+
+/* ===== HEADER ===== */
+.container h1 {
+  text-align: center;
+  color: #0f172a;
+  margin-bottom: 35px;
+  font-size: 2rem;
+  line-height: 1.4;
+  font-weight: 800;
+}
+
+/* ===== FORM SECTIONS ===== */
+form h2 {
+  margin-top: 35px;
+  margin-bottom: 20px;
+  color: #1e3a8a;
+  font-size: 1.3rem;
+  padding-bottom: 8px;
+  border-bottom: 3px solid #dbeafe;
+}
+
+/* ===== LABELS ===== */
+label {
+  display: block;
+  margin-bottom: 8px;
+  margin-top: 18px;
+  font-weight: 600;
+  color: #334155;
+}
+
+/* ===== INPUTS ===== */
+input,
+select,
+textarea {
+  width: 100%;
+  padding: 14px 15px;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  font-size: 1rem;
+  background: #f8fafc;
+  transition: 0.3s ease;
+  font-family: inherit;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: #2563eb;
+  background: #ffffff;
+  outline: none;
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.15);
+}
+
+/* ===== PHOTO PREVIEW ===== */
+.photo-preview-container {
+  text-align: center;
+  margin-bottom: 30px;
+}
+
+#passportPreview {
+  width: 130px;
+  height: 130px;
+  object-fit: cover;
+  border-radius: 50%;
+  border: 5px solid #dbeafe;
+  margin: 0 auto 15px;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f1f5f9;
+  color: #64748b;
+  font-size: 0.9rem;
+}
+
+/* ===== UPLOAD BUTTON ===== */
+.upload-btn {
+  display: inline-block;
+  background: #2563eb;
+  color: white;
+  padding: 12px 22px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: 0.3s ease;
+  margin-top: 10px;
+}
+
+.upload-btn:hover {
+  background: #1d4ed8;
+  transform: translateY(-2px);
+}
+
+/* ===== SUBMIT BUTTON ===== */
+button[type="submit"] {
+  width: 100%;
+  margin-top: 35px;
+  padding: 16px;
+  border: none;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #1e3a8a, #2563eb);
+  color: white;
+  font-size: 1rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: 0.3s ease;
+}
+
+button[type="submit"]:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 20px rgba(37, 99, 235, 0.3);
+}
+
+/* ===== POPUP ===== */
+.popup {
+  position: fixed;
+  z-index: 9999;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+}
+
+.popup-content {
+  background: white;
+  padding: 35px;
+  border-radius: 15px;
+  text-align: center;
+  max-width: 400px;
+  width: 100%;
+  position: relative;
+  animation: popupShow 0.4s ease;
+}
+
+.popup-content h2 {
+  color: #16a34a;
+  margin-bottom: 15px;
+}
+
+.popup-content p {
+  color: #475569;
+  font-size: 1rem;
+}
+
+.close-btn {
+  position: absolute;
+  top: 12px;
+  right: 18px;
+  font-size: 1.8rem;
+  cursor: pointer;
+  color: #64748b;
+  background: none;
+  border: none;
+  line-height: 1;
+}
+
+.close-btn:hover {
+  color: #dc2626;
+}
+
+/* ===== ANIMATIONS ===== */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(25px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes popupShow {
+  from { opacity: 0; transform: scale(0.7); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 768px) {
+  .container {
+    padding: 25px 20px;
+  }
+  .container h1 {
+    font-size: 1.5rem;
+  }
+  form h2 {
+    font-size: 1.1rem;
+  }
+  input,
+  select,
+  textarea {
+    padding: 12px;
+    font-size: 0.95rem;
+  }
+  button[type="submit"] {
+    padding: 14px;
+  }
+}
+
+@media (max-width: 480px) {
+  .form-page-wrapper {
+    padding: 20px 10px;
+  }
+  .container {
+    border-radius: 14px;
+  }
+  #passportPreview {
+    width: 110px;
+    height: 110px;
+  }
+  .upload-btn {
+    width: 100%;
+  }
+}

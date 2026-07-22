@@ -1,0 +1,414 @@
+/* ===== BASE CARD STYLES ===== */
+.id-card-front,
+.id-card-back {
+  width: 260px;
+  height: 480px;
+  position: relative;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+  font-family: 'Arial', sans-serif;
+  background-color: #f4f1ea;
+}
+
+/* ===== WATERMARK ===== */
+.id-card-front::before,
+.id-card-back::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: url('/expols-logo.png');
+  background-repeat: repeat;
+  background-size: 50px 50px;
+  opacity: 0.07;
+  z-index: 1;
+  pointer-events: none;
+}
+
+/* ===== LEFT STRIPE ===== */
+.side-stripe {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 18px;
+  display: flex;
+  flex-direction: row;
+  z-index: 10;
+}
+
+.stripe-yellow { flex: 1; background: #FFD700; }
+.stripe-green  { flex: 1; background: #006633; }
+.stripe-navy   { flex: 1; background: #003366; }
+
+/* ===== CARD CONTENT ===== */
+.card-content {
+  position: relative;
+  z-index: 2;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  margin-left: 18px;
+}
+
+/* ===== TOP HEADER ===== */
+.top-header {
+  background: #003366;
+  padding: 5px 0 4px;
+  text-align: center;
+}
+
+.police-title {
+  color: white;
+  font-size: 26px;
+  font-weight: 900;
+  margin: 0;
+  letter-spacing: 3px;
+}
+
+/* ===== SUB HEADER ===== */
+.sub-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 6px;
+  background: rgba(244, 241, 234, 0.95);
+}
+
+.header-logo {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+}
+
+.header-text {
+  text-align: center;
+  flex: 1;
+  padding: 0 4px;
+}
+
+.force-text {
+  color: #003366;
+  font-size: 8px;
+  font-weight: bold;
+  margin: 0;
+  letter-spacing: 0.5px;
+}
+
+.expols-text {
+  color: #CC0000;
+  font-size: 12px;
+  font-weight: 900;
+  margin: 1px 0;
+  letter-spacing: 1px;
+}
+
+.school-text {
+  color: #000;
+  font-size: 7px;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 140px;
+}
+
+/* ===== IDENTITY BANNER — 3 COLORS ===== */
+.identity-banner {
+  display: flex;
+  width: 100%;
+}
+
+.banner-green {
+  background: #006633;
+  color: white;
+  flex: 1;
+  text-align: center;
+  padding: 4px 2px;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 1px;
+}
+
+.banner-yellow {
+  background: #FFD700;
+  color: #003366;
+  padding: 4px 6px;
+  font-weight: 900;
+  font-size: 9px;
+  letter-spacing: 1px;
+}
+
+.banner-navy {
+  background: #003366;
+  color: white;
+  flex: 1;
+  text-align: center;
+  padding: 4px 2px;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 1px;
+}
+
+/* ===== PHOTO AREA ===== */
+.photo-area {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 8px 8px;
+  gap: 8px;
+  flex: 1;
+}
+
+/* ===== PHOTO FRAME — 3 COLOR BORDER ===== */
+.photo-frame {
+  position: relative;
+  width: 120px;
+  height: 145px;
+  background: white;
+  border: 4px solid transparent;
+  border-image: linear-gradient(
+    to bottom,
+    #FFD700 0%, #FFD700 33%,
+    #006633 33%, #006633 66%,
+    #003366 66%, #003366 100%
+  ) 1;
+  flex-shrink: 0;
+}
+
+/* ===== VERTICAL ID NUMBER ===== */
+.vertical-id {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding-top: 4px;
+  gap: 0px;
+}
+
+.id-digit {
+  font-size: 11px;
+  font-weight: 900;
+  color: #003366;
+  line-height: 1.2;
+}
+
+/* ===== FOOTER ===== */
+.front-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 6px 6px 0;
+  background: rgba(244, 241, 234, 0.95);
+  position: relative;
+}
+
+/* Small grayscale photo overlapping stripe */
+.small-photo-wrapper {
+  position: relative;
+  width: 40px;
+  height: 50px;
+  border: 1px solid #003366;
+  flex-shrink: 0;
+  margin-left: -5px;
+  z-index: 11;
+}
+
+.footer-text {
+  flex: 1;
+  padding-left: 6px;
+}
+
+.member-name {
+  font-size: 9px;
+  font-weight: bold;
+  color: #000;
+  margin: 0 0 1px 0;
+}
+
+.member-org {
+  font-size: 8px;
+  font-weight: bold;
+  color: #000;
+  margin: 0 0 1px 0;
+}
+
+.member-chapter {
+  font-size: 10px;
+  font-weight: 900;
+  color: #CC0000;
+  margin: 0;
+}
+
+/* ===== FOOTER LOGO WITH 3-COLOR TRIANGLE ===== */
+.footer-logo-wrapper {
+  position: relative;
+  width: 50px;
+  height: 55px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.footer-logo-wrapper::before {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 50px;
+  height: 55px;
+  background: linear-gradient(
+    to bottom,
+    #FFD700 0%, #FFD700 33%,
+    #006633 33%, #006633 66%,
+    #003366 66%, #003366 100%
+  );
+  clip-path: polygon(100% 0, 100% 100%, 0% 100%);
+  z-index: 0;
+}
+
+.footer-logo {
+  position: relative;
+  z-index: 1;
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+}
+
+/* ===== BACK FACE ===== */
+.id-card-back {
+  display: flex;
+  flex-direction: column;
+}
+
+.back-content {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 12px 12px;
+   justify-content: flex-start; 
+}
+
+.cert-text {
+  font-size: 9px;
+  line-height: 1.4;
+  color: #000;
+  text-align: center;
+  margin: 0 0 10px 0;
+  font-style: italic;
+}
+
+.back-center-block {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.back-logo {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+}
+
+.back-text-block {
+  text-align: center;
+}
+
+.back-police {
+  color: #003366;
+  font-size: 18px;
+  font-weight: 900;
+  margin: 0;
+  letter-spacing: 2px;
+}
+
+.back-force {
+  color: #006633;
+  font-size: 8px;
+  font-weight: bold;
+  margin: 1px 0;
+  letter-spacing: 0.5px;
+}
+
+.back-school {
+  color: #CC0000;
+  font-size: 10px;
+  font-weight: 900;
+  margin: 1px 0;
+}
+
+.back-address {
+  font-size: 7px;
+  color: #333;
+  margin: 0;
+  font-style: italic;
+}
+
+.lost-text {
+  font-size: 8px;
+  color: #333;
+  text-align: center;
+  margin: 0 0 10px 0;
+  line-height: 1.4;
+}
+
+/* QR Code centered */
+.back-qr-center {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 8px;
+}
+
+/* Divider line */
+.back-divider {
+  width: 100%;
+  height: 2px;
+  background: #003366;
+  margin-bottom: 8px;
+}
+
+/* Signature + photo row */
+.back-footer-bottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-top: auto;
+  padding-top: 8px;
+}
+
+.back-small-photo {
+  width: 45px;
+  height: 55px;
+  border: 2px solid #003366;
+  border-radius: 4px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.signature-block {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0 8px;
+}
+
+.signature-img {
+  max-width: 80px;
+  height: 30px;
+  object-fit: contain;
+  margin-bottom: 4px;
+}
+
+.sign-label {
+  font-size: 7px;
+  color: #333;
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}

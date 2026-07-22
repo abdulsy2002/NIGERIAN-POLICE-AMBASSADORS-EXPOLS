@@ -1,0 +1,261 @@
+/* ===== ROOT VARIABLES ===== */
+:root {
+  --primary: #003366;
+  --primary-dark: #002147;
+  --secondary: #f4b400;
+  --light: #f8f9fc;
+  --white: #ffffff;
+  --text: #333333;
+  --text-light: #6b7280;
+  --shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+  --transition: all 0.4s ease;
+}
+
+/* ===== HERO SECTION ===== */
+.hero {
+  min-height: 85vh;
+  display: flex;
+  align-items: center;
+  text-align: center;
+  color: var(--white);
+  /* 👇 FIXED: Added leading slash and removed space from filename */
+  background: linear-gradient(rgba(0, 25, 50, 0.75), rgba(0, 25, 50, 0.75)), 
+              url('/image-17.jpeg') center/cover no-repeat;
+}
+
+
+.hero-image {
+  object-fit: cover;
+  z-index: -2;
+}
+
+.hero-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(rgba(0, 25, 50, 0.75), rgba(0, 25, 50, 0.85));
+  z-index: -1;
+}
+
+.hero-content {
+  position: relative;
+  z-index: 1;
+  max-width: 850px;
+  padding: 0 20px;
+  opacity: 0; /* Hidden initially for the JS animation */
+  transform: translateY(20px);
+  transition: all 0.8s ease-out;
+}
+
+/* This class is added by the JavaScript in page.tsx */
+.hero-content.animate-fade-in {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.hero-content .section-subtitle {
+  text-transform: uppercase;
+  letter-spacing: 3px;
+  color: var(--accent-color, #ffcc00);
+  font-weight: 600;
+  margin-bottom: 20px;
+}
+
+.hero-content h1 {
+  font-size: 4rem;
+  line-height: 1.2;
+  margin-bottom: 20px;
+  font-weight: 800;
+}
+
+.hero-content p {
+  font-size: 1.1rem;
+  margin-bottom: 35px;
+  opacity: 0.95;
+}
+
+/* ... (Keep the rest of your .registration-options CSS exactly as it was) ... */
+
+/* ===== REGISTRATION OPTIONS ===== */
+.registration-options {
+  padding: 100px 0;
+  background: var(--light);
+}
+
+.container {
+  width: 90%;
+  max-width: 1200px;
+  margin: auto;
+}
+
+.options-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+  gap: 40px;
+}
+
+.option-card {
+  background: var(--white);
+  padding: 50px 40px;
+  border-radius: 20px;
+  box-shadow: var(--shadow);
+  text-align: center;
+  transition: var(--transition);
+  border: 1px solid #e5e7eb;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Animated top border on hover */
+.option-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 5px;
+  background: linear-gradient(90deg, var(--primary), var(--secondary));
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.4s ease;
+}
+
+.option-card:hover {
+  transform: translateY(-10px);
+  box-shadow: 0 20px 40px rgba(0, 51, 102, 0.15);
+}
+
+.option-card:hover::before {
+  transform: scaleX(1);
+}
+
+.option-icon {
+  font-size: 4rem;
+  margin-bottom: 20px;
+  display: inline-block;
+  background: #f0f4ff;
+  width: 100px;
+  height: 100px;
+  line-height: 100px;
+  border-radius: 50%;
+  transition: var(--transition);
+}
+
+.option-card:hover .option-icon {
+  background: var(--primary);
+  transform: scale(1.1) rotate(5deg);
+}
+
+.option-card h2 {
+  font-size: 1.8rem;
+  color: var(--primary);
+  margin-bottom: 15px;
+  font-weight: 700;
+}
+
+.option-card p {
+  color: var(--text-light);
+  font-size: 1.05rem;
+  line-height: 1.7;
+  margin-bottom: 30px;
+}
+
+.option-btn {
+  display: inline-block;
+  padding: 14px 32px;
+  border-radius: 50px;
+  font-weight: 600;
+  font-size: 1rem;
+  text-decoration: none;
+  transition: var(--transition);
+  cursor: pointer;
+}
+
+.option-btn.primary {
+  background: var(--primary);
+  color: var(--white);
+}
+
+.option-btn.primary:hover {
+  background: var(--primary-dark);
+  transform: translateY(-3px);
+  box-shadow: 0 10px 20px rgba(0, 51, 102, 0.2);
+}
+
+.option-btn.secondary {
+  background: var(--secondary);
+  color: #000000;
+}
+
+.option-btn.secondary:hover {
+  background: #d89b00;
+  transform: translateY(-3px);
+  box-shadow: 0 10px 20px rgba(244, 180, 0, 0.3);
+}
+
+/* ===== ANIMATIONS ===== */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+/* ===== TYPEWRITER CURSOR ===== */
+.typewriter-cursor {
+  display: inline-block;
+  width: 3px;
+  background-color: var(--secondary, #f4b400); /* Uses your gold color */
+  animation: blink 1s step-end infinite;
+  margin-left: 5px;
+}
+
+@keyframes blink { 
+  50% { opacity: 0; } 
+}
+/* ===== RESPONSIVE ===== */
+@media (max-width: 992px) {
+  .options-grid {
+    grid-template-columns: 1fr;
+    gap: 30px;
+  }
+  .hero-content h1 {
+    font-size: 2.8rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .hero {
+    min-height: 60vh;
+  }
+  .hero-content h1 {
+    font-size: 2.2rem;
+  }
+  .hero-content p {
+    font-size: 1rem;
+  }
+  .registration-options {
+    padding: 60px 0;
+  }
+  .option-card {
+    padding: 40px 25px;
+  }
+}
+
+@media (max-width: 480px) {
+  .hero-content h1 {
+    font-size: 1.8rem;
+  }
+  .option-icon {
+    width: 80px;
+    height: 80px;
+    line-height: 80px;
+    font-size: 3rem;
+  }
+  .option-btn {
+    width: 100%;
+    text-align: center;
+  }
+}
