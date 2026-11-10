@@ -1,0 +1,31 @@
+name: NestJS Backend
+
+on:
+  push:
+    paths:
+      - 'backend-nest/**'
+      - '.github/workflows/backend-nest.yml'
+  pull_request:
+    paths:
+      - 'backend-nest/**'
+      - '.github/workflows/backend-nest.yml'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend-nest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend-nest/package-lock.json
+      - run: npm ci
+      - run: npx prisma validate
+        env:
+          DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+      - run: npm run build
+      - run: npm test -- --runInBand

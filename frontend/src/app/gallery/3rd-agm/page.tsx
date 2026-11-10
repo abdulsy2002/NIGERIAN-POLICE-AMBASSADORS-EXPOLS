@@ -1,10 +1,13 @@
 // src/app/gallery/3rd-agm/page.tsx
 "use client";
 import Link from 'next/link';
+import Image from 'next/image';
 import { useState } from 'react';
 
 export default function ThirdAGM() {
   const [lightbox, setLightbox] = useState<{ open: boolean; src: string; title: string }>({ open: false, src: '', title: '' });
+  const [page, setPage] = useState(1);
+  const pageSize = 24;
 
   // Generate 318 images for 3rd AGM
   const images = Array.from({ length: 318 }, (_, i) => ({
@@ -26,11 +29,16 @@ export default function ThirdAGM() {
       <section className="section">
         <div className="container">
           <div className="gallery-grid" style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '20px'}}>
-            {images.map((img) => (
+            {images.slice((page - 1) * pageSize, page * pageSize).map((img) => (
               <div key={img.id} className="gallery-item" style={{cursor: 'pointer', borderRadius: '10px', overflow: 'hidden', boxShadow: '0 4px 6px rgba(0,0,0,0.1)'}} onClick={() => setLightbox({ open: true, src: img.src, title: img.title })}>
-                <img src={img.src} alt={img.title} loading="lazy" style={{width: '100%', height: '200px', objectFit: 'cover', display: 'block'}} onError={(e) => (e.currentTarget.style.display = 'none')} />
+                <Image src={img.src} alt={img.title} width={500} height={300} sizes="(max-width: 600px) 100vw, 33vw" loading="lazy" style={{width: '100%', height: '200px', objectFit: 'cover', display: 'block'}} onError={(e) => (e.currentTarget.style.display = 'none')} />
               </div>
             ))}
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '12px', marginTop: '24px' }}>
+            <button className="btn btn-outline" disabled={page === 1} onClick={() => setPage(current => current - 1)}>Previous</button>
+            <span>Page {page} of {Math.ceil(images.length / pageSize)}</span>
+            <button className="btn btn-outline" disabled={page >= Math.ceil(images.length / pageSize)} onClick={() => setPage(current => current + 1)}>Next</button>
           </div>
         </div>
       </section>

@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { getCurrentUser, logoutUser, getUserBroadcasts, getUserReunions, updateCurrentUser } from '@/app/actions';
 import { useRouter } from 'next/navigation';
+import { getUploadError, MEMBER_IMAGE_TYPES } from '@/lib/upload-validation';
 
 export default function UserDashboard() {
   const [user, setUser] = useState<any>(null);
@@ -35,8 +36,11 @@ export default function UserDashboard() {
         occupation: result.occupation || '',
         passportPhoto: result.passportPhoto || '',
       });
-      fetchBroadcasts(result.stateBaseCode);
-      fetchReunions(result.email);
+      // Run both fetches in parallel — halves load time
+      await Promise.all([
+        fetchBroadcasts(result.stateBaseCode),
+        fetchReunions(result.email)
+      ]);
     } else {
       router.push('/login');
     }
@@ -71,11 +75,28 @@ export default function UserDashboard() {
     setIsUpdating(true);
     setUpdateMessage('');
 
-    const res = await updateCurrentUser(profileForm);
+    const requestedChanges: Record<string, string> = {};
+    if (profileForm.fullName.trim() !== (user.fullName || '').trim()) {
+      requestedChanges.fullName = profileForm.fullName;
+    }
+    if (profileForm.email.trim().toLowerCase() !== (user.email || '').trim().toLowerCase()) {
+      requestedChanges.email = profileForm.email;
+    }
+    if (user.userType === 'alumni' && profileForm.schoolAttended.trim() !== (user.schoolAttended || '').trim()) {
+      requestedChanges.schoolAttended = profileForm.schoolAttended;
+    }
+
+    const res = await updateCurrentUser({
+      phoneNumber: profileForm.phoneNumber,
+      residentialAddress: profileForm.residentialAddress,
+      occupation: profileForm.occupation,
+      passportPhoto: profileForm.passportPhoto,
+      requestedChanges,
+    });
     if (res.success) {
-      setUpdateMessage(res.message || 'Profile updated successfully!');
+      setUpdateMessage(res.message || 'Profile saved successfully!');
       setIsEditingProfile(false);
-      fetchUserData();
+      await fetchUserData();
     } else {
       setUpdateMessage(`Error: ${res.error}`);
     }
@@ -86,6 +107,12 @@ export default function UserDashboard() {
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      const error = getUploadError(file, MEMBER_IMAGE_TYPES, 2 * 1024 * 1024, 'Passport photo');
+      if (error) {
+        setUpdateMessage(error);
+        e.target.value = '';
+        return;
+      }
       const reader = new FileReader();
       reader.onloadend = () => {
         setProfileForm({ ...profileForm, passportPhoto: reader.result as string });
@@ -168,7 +195,7 @@ export default function UserDashboard() {
             {isEditingProfile ? (
               <form onSubmit={handleProfileUpdate}>
                 <div style={{ textAlign: 'center', marginBottom: '20px' }}>
-                  <input type="file" accept="image/*" ref={fileInputRef} onChange={handlePhotoUpload} style={{ display: 'none' }} />
+                  <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" ref={fileInputRef} onChange={handlePhotoUpload} style={{ display: 'none' }} />
                   <div onClick={() => fileInputRef.current?.click()} style={{ cursor: 'pointer', position: 'relative', display: 'inline-block' }}>
                     {profileForm.passportPhoto ? (
                       <img src={profileForm.passportPhoto} alt="Passport" style={{ width: '100px', height: '100px', borderRadius: '50%', objectFit: 'cover', border: '3px solid #003366' }} />
@@ -299,7 +326,7 @@ export default function UserDashboard() {
           ) : (
             <div style={{ display: 'grid', gap: '15px' }}>
               {reunions.map((reg) => (
-                <div key={reg._id} style={{ 
+                <div key={reg.id ?? reg._id} style={{
                   display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px',
                   border: '1px solid #e5e7eb', borderRadius: '12px', padding: '20px', background: '#f9fafb'
                 }}>
@@ -315,7 +342,7 @@ export default function UserDashboard() {
                     )}
                   </div>
                   <div style={{ textAlign: 'right' }}>
-                    <div style={{ 
+                    <div style={{
                       display: 'inline-block', padding: '6px 14px', borderRadius: '20px', fontSize: '0.85rem', fontWeight: 700,
                       background: reg.paymentStatus === 'paid' ? '#d1fae5' : '#fef3c7',
                       color: reg.paymentStatus === 'paid' ? '#065f46' : '#92400e'
@@ -357,7 +384,7 @@ export default function UserDashboard() {
           ) : (
             <div style={{ display: 'grid', gap: '20px' }}>
               {broadcasts.map((broadcast) => (
-                <div key={broadcast._id} style={{ 
+                <div key={broadcast.id ?? broadcast._id} style={{
                   border: '1px solid #e5e7eb', 
                   borderRadius: '12px', 
                   padding: '20px',

@@ -7,6 +7,8 @@ import { useRouter } from 'next/navigation';
 export default function SupportPage() {
   const router = useRouter();
   const [tickets, setTickets] = useState<any[]>([]);
+  const [ticketsPagination, setTicketsPagination] = useState<any>(null);
+  const [ticketPage, setTicketPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -22,10 +24,14 @@ export default function SupportPage() {
     loadTickets();
   }, []);
 
-  const loadTickets = async () => {
-    const result: any = await getUserTickets();
+  const loadTickets = async (page = ticketPage) => {
+    const result: any = await getUserTickets(page);
     if (result.success) {
       setTickets(result.data);
+      setTicketsPagination(result.pagination);
+      setTicketPage(page);
+    } else {
+      setMessage(`❌ ${result.error || 'Unable to load support tickets.'}`);
     }
     setLoading(false);
   };
@@ -47,7 +53,7 @@ export default function SupportPage() {
       setMessage('✅ ' + result.message);
       setFormData({ subject: '', category: 'general', priority: 'medium', description: '' });
       setShowForm(false);
-      loadTickets();
+      loadTickets(1);
     } else {
       setMessage('❌ ' + result.error);
     }
@@ -205,7 +211,7 @@ export default function SupportPage() {
 
         {/* Tickets List */}
         <div style={{ background: 'white', borderRadius: '12px', padding: '30px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
-          <h2 style={{ color: '#003366', marginBottom: '20px' }}>My Tickets ({tickets.length})</h2>
+          <h2 style={{ color: '#003366', marginBottom: '20px' }}>My Tickets ({ticketsPagination?.total ?? tickets.length})</h2>
           
           {tickets.length === 0 ? (
             <p style={{ textAlign: 'center', color: '#666', padding: '40px' }}>
@@ -214,7 +220,7 @@ export default function SupportPage() {
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
               {tickets.map((ticket) => (
-                <div key={ticket._id} style={{ padding: '20px', border: '1px solid #e5e7eb', borderRadius: '8px' }}>
+                <div key={ticket.id || ticket._id} style={{ padding: '20px', border: '1px solid #e5e7eb', borderRadius: '8px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '10px' }}>
                     <div>
                       <h3 style={{ margin: '0 0 5px 0', color: '#003366' }}>{ticket.subject}</h3>
@@ -250,7 +256,7 @@ export default function SupportPage() {
                   {ticket.responses && ticket.responses.length > 0 && (
                     <div style={{ marginTop: '15px', paddingTop: '15px', borderTop: '1px solid #e5e7eb' }}>
                       <p style={{ fontSize: '0.85rem', color: '#666', marginBottom: '10px' }}>
-                        {ticket.responses.length} response(s)
+                        {ticket._count?.responses ?? ticket.responses.length} response(s)
                       </p>
                       {ticket.responses.slice(-1).map((response: any, idx: number) => (
                         <div key={idx} style={{ background: '#f0f9ff', padding: '12px', borderRadius: '8px', marginTop: '8px' }}>
@@ -264,6 +270,13 @@ export default function SupportPage() {
                   )}
                 </div>
               ))}
+            </div>
+          )}
+          {ticketsPagination?.totalPages > 1 && (
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '12px', marginTop: '20px' }}>
+              <button disabled={ticketPage <= 1} onClick={() => void loadTickets(ticketPage - 1)}>Previous</button>
+              <span>Page {ticketPage} of {ticketsPagination.totalPages}</span>
+              <button disabled={ticketPage >= ticketsPagination.totalPages} onClick={() => void loadTickets(ticketPage + 1)}>Next</button>
             </div>
           )}
         </div>

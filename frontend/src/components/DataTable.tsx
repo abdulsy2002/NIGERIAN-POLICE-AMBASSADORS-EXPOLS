@@ -83,7 +83,6 @@ export default function DataTable<T extends object>({
         loading={loading}
         size="middle"
         pagination={pagination === false ? false : {
-          size: 'default',
           pageSize: 10,
           showSizeChanger: false,
           showTotal: (total: number, range: [number, number]) => (

@@ -65,6 +65,7 @@ export default function AdminLoginPage() {
               name="email"
               placeholder="admin@example.com" 
               required 
+              suppressHydrationWarning
             />
           </div>
           
@@ -75,10 +76,11 @@ export default function AdminLoginPage() {
               name="password"
               placeholder="Enter your password" 
               required 
+              suppressHydrationWarning
             />
           </div>
           
-          <button type="submit" className="login-btn" disabled={isLoading}>
+          <button type="submit" className="login-btn" disabled={isLoading} suppressHydrationWarning>
             {isLoading ? 'Logging in...' : 'Login'}
           </button>
         </form>

@@ -2,6 +2,7 @@
 import './ambassador.css';
 import { useState, useRef, FormEvent } from 'react';
 import { submitAmbassadorRegistration } from '@/app/actions';
+import { getUploadError, MEMBER_DOCUMENT_TYPES, MEMBER_IMAGE_TYPES } from '@/lib/upload-validation';
 
 export default function AmbassadorPage() {
   const [passportPreview, setPassportPreview] = useState<string | null>(null);
@@ -19,6 +20,15 @@ export default function AmbassadorPage() {
   const handlePassportChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      const error = getUploadError(file, MEMBER_IMAGE_TYPES, 2 * 1024 * 1024, 'Passport photo');
+      if (error) {
+        setStatusMessage(error);
+        setFormStatus('error');
+        e.target.value = '';
+        return;
+      }
+      setFormStatus('idle');
+      setStatusMessage('');
       const reader = new FileReader();
       reader.onloadend = () => {
         setPassportPreview(reader.result as string);
@@ -32,6 +42,15 @@ export default function AmbassadorPage() {
   const handleDocChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      const error = getUploadError(file, MEMBER_DOCUMENT_TYPES, 4 * 1024 * 1024, 'Supporting document');
+      if (error) {
+        setStatusMessage(error);
+        setFormStatus('error');
+        e.target.value = '';
+        return;
+      }
+      setFormStatus('idle');
+      setStatusMessage('');
       setDocFileName(file.name);
       const reader = new FileReader();
       reader.onloadend = () => {
@@ -49,12 +68,14 @@ export default function AmbassadorPage() {
 
     const form = e.currentTarget;
     const formData = new FormData(form);
-    
-    // Append the Base64 strings to FormData
-    formData.append("passportPhoto", passportBase64);
-    formData.append("supportingDocument", docBase64);
+    const payload: Record<string, any> = {};
+    formData.forEach((val, key) => {
+      payload[key] = val;
+    });
+    payload.passportPhoto = passportBase64;
+    payload.supportingDocument = docBase64;
 
-    const result = await submitAmbassadorRegistration(formData);
+    const result = await submitAmbassadorRegistration(payload);
 
     if (result.success) {
       setFormStatus('success');
@@ -91,7 +112,7 @@ export default function AmbassadorPage() {
             <input 
               type="file" 
               id="passportInput" 
-              accept="image/*" 
+              accept="image/jpeg,image/png,image/webp,image/gif"
               style={{ display: 'none' }} 
               onChange={handlePassportChange}
               ref={fileInputRef}
@@ -114,6 +135,7 @@ export default function AmbassadorPage() {
             <div><label>Date of Birth</label><input type="date" name="dateOfBirth" required /></div>
             <div><label>Phone Number</label><input type="tel" name="phoneNumber" required /></div>
             <div><label>Email Address</label><input type="email" name="email" required /></div>
+            <div><label>Create Password</label><input type="password" name="password" required placeholder="Minimum 6 characters" minLength={6} /></div>
             <div>
               <label>State of Residence</label>
               <select name="state" required defaultValue="">

@@ -2,11 +2,12 @@
 
 import '../login/login.css';
 import Link from 'next/link';
+import { Suspense } from 'react';
 import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { loginUser } from '@/app/actions';
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [error, setError] = useState('');
@@ -99,5 +100,13 @@ export default function LoginPage() {
         </div>
       </section>
     </>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<section className="login-section" aria-busy="true" />}>
+      <LoginForm />
+    </Suspense>
   );
 }

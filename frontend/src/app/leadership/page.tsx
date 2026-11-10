@@ -20,23 +20,27 @@ export default function LeadershipPage() {
   // Hero typing effect
   useEffect(() => {
     const texts = ['Our Leadership', 'Executive Board', 'Our Champions'];
-    let textIndex = 0, charIndex = 0, isDeleting = false;
+    const state = { textIndex: 0, charIndex: 0, isDeleting: false };
     let timer: ReturnType<typeof setTimeout>;
 
     const type = () => {
-      const current = texts[textIndex];
-      setHeroText(isDeleting
-        ? current.substring(0, charIndex - 1)
-        : current.substring(0, charIndex + 1));
-      charIndex += isDeleting ? -1 : 1;
+      const current = texts[state.textIndex];
 
-      let speed = isDeleting ? 40 : 80;
-      if (!isDeleting && charIndex === current.length) {
+      if (state.isDeleting) {
+        state.charIndex--;
+        setHeroText(current.substring(0, state.charIndex));
+      } else {
+        state.charIndex++;
+        setHeroText(current.substring(0, state.charIndex));
+      }
+
+      let speed = state.isDeleting ? 40 : 80;
+      if (!state.isDeleting && state.charIndex === current.length) {
         speed = 2000;
-        isDeleting = true;
-      } else if (isDeleting && charIndex === 0) {
-        isDeleting = false;
-        textIndex = (textIndex + 1) % texts.length;
+        state.isDeleting = true;
+      } else if (state.isDeleting && state.charIndex === 0) {
+        state.isDeleting = false;
+        state.textIndex = (state.textIndex + 1) % texts.length;
         speed = 400;
       }
       timer = setTimeout(type, speed);
@@ -76,7 +80,7 @@ export default function LeadershipPage() {
           <div className="board-grid">
             {/* Featured Member (Chairman) */}
             {featuredMember && (
-              <div className="board-card featured">
+              <div key={featuredMember._id} className="board-card featured">
                 <div className="board-photo-wrapper">
                   <img src={featuredMember.photoUrl} alt={featuredMember.name} className="board-photo" />
                   <div className="board-badge">{featuredMember.role}</div>

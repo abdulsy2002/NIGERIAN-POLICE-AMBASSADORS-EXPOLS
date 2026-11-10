@@ -191,6 +191,59 @@
   cursor: pointer;
 }
 
+.receipt-body {
+  padding: 32px;
+}
+
+.receipt-confirmed {
+  margin: 0;
+  color: #065f46;
+  font-weight: 700;
+  text-align: center;
+}
+
+.receipt-amount {
+  margin: 12px 0 28px;
+  color: #003366;
+  font-size: 2rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.receipt-details {
+  margin: 0;
+  border-top: 1px solid #e5e7eb;
+}
+
+.receipt-details > div {
+  display: grid;
+  grid-template-columns: minmax(130px, 1fr) 2fr;
+  gap: 16px;
+  padding: 13px 0;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.receipt-details dt {
+  color: #6b7280;
+}
+
+.receipt-details dd {
+  margin: 0;
+  color: #1f2937;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.receipt-details .receipt-status {
+  color: #065f46;
+}
+
+.receipt-actions {
+  display: grid;
+  gap: 12px;
+  margin-top: 28px;
+}
+
 @media (max-width: 768px) {
   .form-row {
     grid-template-columns: 1fr;
@@ -198,5 +251,39 @@
   
   .payment-header h1 {
     font-size: 1.5rem;
+  }
+
+  .receipt-body {
+    padding: 24px 20px;
+  }
+
+  .receipt-details > div {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+}
+
+@media print {
+  @page {
+    margin: 16mm;
+  }
+
+  body {
+    background: white !important;
+  }
+
+  .payment-page {
+    min-height: auto;
+    padding: 0;
+    background: white;
+  }
+
+  .payment-container {
+    max-width: none;
+    box-shadow: none;
+  }
+
+  .receipt-actions {
+    display: none;
   }
 }

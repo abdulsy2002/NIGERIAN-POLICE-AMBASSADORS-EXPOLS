@@ -11,11 +11,13 @@ class ApiClient {
     return headers;
   }
 
-  async get(endpoint: string, token?: string) {
+  async get(endpoint: string, token?: string, revalidate: number | false = 60) {
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       method: 'GET',
       headers: this.getHeaders(token),
-      cache: 'no-store',
+      // revalidate: 0 = always fresh; revalidate: N = cache for N seconds; false = no-store
+      next: revalidate === false ? undefined : { revalidate },
+      cache: revalidate === false ? 'no-store' : undefined,
     });
     return this.handleResponse(response);
   }
@@ -32,6 +34,15 @@ class ApiClient {
   async put(endpoint: string, body: any, token?: string) {
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       method: 'PUT',
+      headers: this.getHeaders(token),
+      body: JSON.stringify(body),
+    });
+    return this.handleResponse(response);
+  }
+
+  async patch(endpoint: string, body: any, token?: string) {
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      method: 'PATCH',
       headers: this.getHeaders(token),
       body: JSON.stringify(body),
     });

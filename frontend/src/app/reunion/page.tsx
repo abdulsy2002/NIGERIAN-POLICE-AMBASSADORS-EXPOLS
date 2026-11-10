@@ -4,6 +4,7 @@ import './reunion.css';
 import Link from 'next/link';
 import { useState, useEffect, FormEvent } from 'react';
 import { submitReunionRegistration, getReunionSettings } from '@/app/actions';
+import { STATE_BASE_OPTIONS } from '@/lib/stateBaseCodes';
 import { useRouter } from 'next/navigation';
 
 import Script from 'next/script';
@@ -14,21 +15,73 @@ export default function ReunionPage() {
   const [formStatus, setFormStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [userName, setUserName] = useState('');
+  const [stateBaseCode, setStateBaseCode] = useState('NAT');
+  const [chapterLocked, setChapterLocked] = useState(false);
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [formDataObj, setFormDataObj] = useState<any>(null);
 
+  const DEFAULT_SETTINGS = {
+    heroBadge: '🎉 4TH ANNUAL REUNION',
+    heroTitle: 'Reunion 2026',
+    heroDescription: 'Join fellow alumni for our biggest gathering yet!',
+    eventTitle: 'Event Details',
+    eventSubtitle: '4th Annual EX-POLS Reunion',
+    eventDate: 'December 12-14, 2026',
+    eventVenue: 'Kano International Conference Centre\nZoo Road, Kano',
+    eventTime: 'Friday 4PM - Sunday 2PM',
+    expectedAttendance: '1,000+ Alumni & Guests',
+    earlyBirdTitle: '🎟️ Early Bird Registration',
+    earlyBirdDescription: 'Save 30% when you register before October 31, 2026',
+    earlyBirdPrice: '₦15,000',
+    earlyBirdLabel: 'Early Bird (Before Oct 31)',
+    regularPrice: '₦20,000',
+    regularLabel: 'Regular Registration',
+    secureNote: '🔒 Secure payment • Refundable until Nov 30',
+    scheduleTitle: 'Reunion Schedule',
+    scheduleSubtitle: 'Three days of networking, celebration, and community service.',
+    scheduleFriday: {
+      date: 'Dec 12',
+      items: [
+        { time: '4:00 PM', title: 'Arrival & Accreditation', description: 'Registration check-in and welcome pack pickup' },
+        { time: '6:30 PM', title: 'Welcome Cocktail & Networking', description: 'Meet and greet session with light refreshments' }
+      ]
+    },
+    scheduleSaturday: {
+      date: 'Dec 13',
+      items: [
+        { time: '9:00 AM', title: 'Main Assembly & Keynote', description: 'Address by national executives and keynote speech' },
+        { time: '1:00 PM', title: 'Lunch & Group Photo', description: 'Networking lunch and official group photo session' },
+        { time: '7:00 PM', title: 'Gala Night & Awards', description: 'Celebration dinner and award presentations' }
+      ]
+    },
+    scheduleSunday: {
+      date: 'Dec 14',
+      items: [
+        { time: '10:00 AM', title: 'Annual General Meeting', description: 'Constitutional affairs and chapter resolutions' },
+        { time: '1:00 PM', title: 'Farewell & Departure', description: 'Closing remarks and departures' }
+      ]
+    }
+  };
+
   useEffect(() => {
     const fetchSettings = async () => {
-      const result = await getReunionSettings();
-      if (result.success && result.data) {
-        setSettings(result.data);
+      try {
+        const result = await getReunionSettings();
+        if (result && result.success && result.data) {
+          const raw = result.data.data ? result.data.data : result.data;
+          setSettings({ ...DEFAULT_SETTINGS, ...raw });
+        } else {
+          setSettings(DEFAULT_SETTINGS);
+        }
+      } catch (err) {
+        setSettings(DEFAULT_SETTINGS);
       }
     };
     fetchSettings();
-  }, []);
+  }, [stateBaseCode]);
 
   useEffect(() => {
-    if (settings) {
+    if (settings && settings.heroTitle) {
       let i = 0;
       const fullText = settings.heroTitle;
       const timer = setInterval(() => {
@@ -51,6 +104,16 @@ export default function ReunionPage() {
           const data = await response.json();
           setIsLoggedIn(true);
           setUserName(data.user?.fullName || '');
+          const code = data.user?.stateBaseCode;
+          if (code) {
+            setChapterLocked(true);
+            setStateBaseCode(code);
+            const result = await getReunionSettings(code);
+            if (result?.success && result.data) {
+              const raw = result.data.data ? result.data.data : result.data;
+              setSettings({ ...DEFAULT_SETTINGS, ...raw });
+            }
+          }
         } else {
           setIsLoggedIn(false);
         }
@@ -226,8 +289,8 @@ export default function ReunionPage() {
           </div>
           <div className="schedule-grid">
             <div className="schedule-day">
-              <h3>Friday <span>{settings.scheduleFriday.date}</span></h3>
-              {settings.scheduleFriday.items.map((item: any, idx: number) => (
+              <h3>Friday <span>{settings.scheduleFriday?.date || 'Dec 12'}</span></h3>
+              {(settings.scheduleFriday?.items || []).map((item: any, idx: number) => (
                 <div key={idx} className="schedule-item">
                   <div className="time">{item.time}</div>
                   <div className="info"><h4>{item.title}</h4><p>{item.description}</p></div>
@@ -235,8 +298,8 @@ export default function ReunionPage() {
               ))}
             </div>
             <div className="schedule-day">
-              <h3>Saturday <span>{settings.scheduleSaturday.date}</span></h3>
-              {settings.scheduleSaturday.items.map((item: any, idx: number) => (
+              <h3>Saturday <span>{settings.scheduleSaturday?.date || 'Dec 13'}</span></h3>
+              {(settings.scheduleSaturday?.items || []).map((item: any, idx: number) => (
                 <div key={idx} className="schedule-item">
                   <div className="time">{item.time}</div>
                   <div className="info"><h4>{item.title}</h4><p>{item.description}</p></div>
@@ -244,8 +307,8 @@ export default function ReunionPage() {
               ))}
             </div>
             <div className="schedule-day">
-              <h3>Sunday <span>{settings.scheduleSunday.date}</span></h3>
-              {settings.scheduleSunday.items.map((item: any, idx: number) => (
+              <h3>Sunday <span>{settings.scheduleSunday?.date || 'Dec 14'}</span></h3>
+              {(settings.scheduleSunday?.items || []).map((item: any, idx: number) => (
                 <div key={idx} className="schedule-item">
                   <div className="time">{item.time}</div>
                   <div className="info"><h4>{item.title}</h4><p>{item.description}</p></div>
@@ -295,6 +358,13 @@ export default function ReunionPage() {
               )}
 
               <form onSubmit={handleSubmit}>
+                <div className="form-group">
+                  <label htmlFor="reunion-state-base">Chapter</label>
+                  <select id="reunion-state-base" name="stateBaseCode" value={stateBaseCode} onChange={(event) => setStateBaseCode(event.target.value)} disabled={chapterLocked} required>
+                    {STATE_BASE_OPTIONS.map(({ name, code }) => <option key={code} value={code}>{name}</option>)}
+                  </select>
+                  {chapterLocked && <input type="hidden" name="stateBaseCode" value={stateBaseCode} />}
+                </div>
                 <div className="form-group">
                   <label>Full Name</label>
                   <input type="text" name="fullName" placeholder="Your full name" required />

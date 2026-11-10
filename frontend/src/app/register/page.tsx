@@ -23,7 +23,7 @@ export default function RegisterPage() {
     "Cross River", "Delta", "Ebonyi", "Edo", "Ekiti", "Enugu", "FCT - Abuja", "Gombe",
     "Imo", "Jigawa", "Kaduna", "Kano", "Katsina", "Kebbi", "Kogi", "Kwara", "Lagos",
     "Nasarawa", "Niger", "Ogun", "Ondo", "Osun", "Oyo", "Plateau", "Rivers", "Sokoto",
-    "Taraba", "Yobe", "Zamfara"
+    "Taraba", "Yobe", "Zamfara", "Diaspora"
   ];
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -43,13 +43,14 @@ export default function RegisterPage() {
       return;
     }
 
-    const form = new FormData();
-    form.append('email', formData.email);
-    form.append('password', formData.password);
-    form.append('userType', userType);
-    form.append('stateBase', formData.stateBase);
+    const payload = {
+      email: formData.email,
+      password: formData.password,
+      userType,
+      stateBase: formData.stateBase,
+    };
 
-    const result: any = await registerUser(form);
+    const result: any = await registerUser(payload);
 
     if (result.success) {
       // Redirect to the appropriate profile completion page
@@ -59,7 +60,7 @@ export default function RegisterPage() {
         router.push('/ambassador');
       }
     } else {
-      setError(result.error || 'Registration failed. Please try again.');
+      setError(result.error || result.message || 'Registration failed. Please try again.');
       setIsLoading(false);
     }
   };

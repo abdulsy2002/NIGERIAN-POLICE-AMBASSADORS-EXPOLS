@@ -1,7 +1,8 @@
 "use client";
 import "./form.css";
 import { useState, useRef, FormEvent } from "react";
-import { registerAlumni, updateAlumniProfile } from "@/app/actions";
+import { registerAlumni } from "@/app/actions";
+import { getUploadError, MEMBER_IMAGE_TYPES } from "@/lib/upload-validation";
 
 // State Base Codes mapping
 const STATE_BASE_CODES: Record<string, string> = {
@@ -36,6 +37,15 @@ export default function FormPage() {
   const handlePassportChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      const error = getUploadError(file, MEMBER_IMAGE_TYPES, 2 * 1024 * 1024, 'Passport photo');
+      if (error) {
+        setStatusMessage(error);
+        setFormStatus('error');
+        e.target.value = '';
+        return;
+      }
+      setFormStatus('idle');
+      setStatusMessage('');
       const reader = new FileReader();
       reader.onloadend = () => {
         const result = reader.result as string;
@@ -50,6 +60,15 @@ export default function FormPage() {
   const handleSsceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      const error = getUploadError(file, ['application/pdf', 'image/jpeg', 'image/png'], 4 * 1024 * 1024, 'SSCE certificate');
+      if (error) {
+        setStatusMessage(error);
+        setFormStatus('error');
+        e.target.value = '';
+        return;
+      }
+      setFormStatus('idle');
+      setStatusMessage('');
       setSsceFileName(file.name);
       const reader = new FileReader();
       reader.onloadend = () => {
@@ -68,39 +87,36 @@ export default function FormPage() {
   };
 
   // Handle Form Submission to MongoDB
-  // Change this line at the top of your file:
- 
 
-// ... inside your component ...
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setFormStatus('loading');
+    setStatusMessage('');
 
-const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
-  e.preventDefault();
-  setFormStatus('loading');
-  setStatusMessage('');
+    const form = e.currentTarget;
+    const formData = new FormData(form);
+    const payload: Record<string, any> = {};
+    formData.forEach((val, key) => {
+      payload[key] = val;
+    });
+    payload.passportPhoto = passportBase64;
+    payload.ssceCertificate = ssceBase64;
 
-  const form = e.currentTarget;
-  const formData = new FormData(form);
-  
-  // Append the Base64 strings for images
-  formData.append("passportPhoto", passportBase64);
-  formData.append("ssceCertificate", ssceBase64);
+    const result = await registerAlumni(payload);
 
-  // ✅ Call the new update function instead of registerAlumni
-  const result = await updateAlumniProfile(formData);
-
-  if (result.success) {
-    setFormStatus('success');
-    setStatusMessage(result.message || "Profile completed successfully!");
-    form.reset();
-    setPassportPreview(null);
-    setPassportBase64("");
-    setSsceBase64("");
-    setSsceFileName("");
-  } else {
-    setFormStatus('error');
-    setStatusMessage(result.message || "Failed to update profile.");
-  }
-};
+    if (result.success) {
+      setFormStatus('success');
+      setStatusMessage(result.message || "Registration completed successfully!");
+      form.reset();
+      setPassportPreview(null);
+      setPassportBase64("");
+      setSsceBase64("");
+      setSsceFileName("");
+    } else {
+      setFormStatus('error');
+      setStatusMessage(result.message || "Failed to register profile.");
+    }
+  };
 
   return (
     <div className="form-page-wrapper">
@@ -112,6 +128,9 @@ const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
         </h1>
 
         <form onSubmit={handleSubmit}>
+          <input type="hidden" name="stateBaseCode" value={stateBaseCode || "NAT"} />
+          <input type="hidden" name="stateBaseName" value={stateBaseName || "National Base"} />
+
           {/* Passport Upload */}
           <div className="photo-preview-container">
             {passportPreview ? (
@@ -126,7 +145,7 @@ const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
             <input
               type="file"
               id="passportInput"
-              accept="image/*"
+              accept="image/jpeg,image/png,image/webp,image/gif"
               style={{ display: "none" }}
               onChange={handlePassportChange}
               ref={fileInputRef}
@@ -139,6 +158,8 @@ const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: "15px" }}>
             <div><label>Full Name</label><input type="text" name="fullName" required /></div>
             <div><label>Other Name</label><input type="text" name="otherName" /></div>
+            <div><label>Email Address</label><input type="email" name="email" required placeholder="your.email@example.com" /></div>
+            <div><label>Create Password</label><input type="password" name="password" required placeholder="Minimum 6 characters" minLength={6} /></div>
             <div>
               <label>Gender</label>
               <select name="gender" required defaultValue="">

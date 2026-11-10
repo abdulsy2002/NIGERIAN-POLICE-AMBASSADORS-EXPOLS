@@ -10,9 +10,14 @@ export const STATE_BASE_CODES: Record<string, string> = {
   "Lagos": "LOS", "Nasarawa": "NSR", "Niger": "NGR", "Ogun": "OGN",
   "Ondo": "OND", "Osun": "OSN", "Oyo": "OYO", "Plateau": "PLT",
   "Rivers": "RVR", "Sokoto": "SKT", "Taraba": "TRB", "Yobe": "YOB",
-  "Zamfara": "ZMF"
+  "Zamfara": "ZMF", "Diaspora": "DIA"
 };
 
 export const getStateCode = (stateName: string): string => {
   return STATE_BASE_CODES[stateName] || "NAT"; // Fallback to NAT (National)
 };
+
+export const STATE_BASE_OPTIONS = [
+  { name: 'National', code: 'NAT' },
+  ...Object.entries(STATE_BASE_CODES).map(([name, code]) => ({ name, code })),
+];

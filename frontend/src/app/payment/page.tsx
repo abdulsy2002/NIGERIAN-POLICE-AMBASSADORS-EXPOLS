@@ -2,8 +2,25 @@
 
 import { useState, useEffect } from 'react';
 import { initializePayment, verifyPayment, getPaymentSettings } from '@/app/actions';
+import { STATE_BASE_OPTIONS } from '@/lib/stateBaseCodes';
 import dynamic from 'next/dynamic';
 import './payment.css';
+
+interface PaymentReceiptData {
+  stateBaseCode: string;
+  expolIdNumber: string;
+  fullName: string;
+  email: string;
+  phone: string;
+  purpose: string;
+  customReason: string | null;
+  amount: number;
+  currency: string;
+  paystackReference: string;
+  paystackTransactionId: string;
+  paymentDate: string;
+  status: string;
+}
 
 const PaystackButton = dynamic(
   () => import('react-paystack').then((mod) => mod.PaystackButton),
@@ -19,7 +36,8 @@ export default function PaymentPage() {
     purpose: '',
     customReason: '',
     amount: '',
-    notes: ''
+    notes: '',
+    stateBaseCode: 'NAT'
   });
   
   const [paymentPurposes, setPaymentPurposes] = useState<any[]>([]);
@@ -29,23 +47,47 @@ export default function PaymentPage() {
   const [message, setMessage] = useState('');
   const [isClient, setIsClient] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [settingsError, setSettingsError] = useState('');
+  const [chapterLocked, setChapterLocked] = useState(false);
+  const [receipt, setReceipt] = useState<PaymentReceiptData | null>(null);
 
   useEffect(() => {
     setIsClient(true);
-    loadPaymentPurposes();
+    fetch('/api/check-auth').then(async (response) => {
+      if (!response.ok) return loadPaymentPurposes();
+      const session = await response.json();
+      const code = session.user?.stateBaseCode;
+      if (!code) return loadPaymentPurposes();
+      setChapterLocked(true);
+      setFormData((current) => ({ ...current, stateBaseCode: code }));
+      loadPaymentPurposes(code);
+    }).catch(() => loadPaymentPurposes());
   }, []);
 
-  const loadPaymentPurposes = async () => {
-    const result: any = await getPaymentSettings();
-    if (result.success) {
-      setPaymentPurposes(result.data.purposes);
+  const loadPaymentPurposes = async (stateBaseCode = 'NAT') => {
+    try {
+      const result: any = await getPaymentSettings(stateBaseCode);
+      if (result.success && Array.isArray(result.data?.purposes)) {
+        setPaymentPurposes(result.data.purposes.filter((purpose: any) => purpose.enabled));
+      } else {
+        setSettingsError(result.error || 'Unable to load payment options. Please try again later.');
+      }
+    } catch {
+      setSettingsError('Unable to load payment options. Please try again later.');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+    if (name === 'stateBaseCode') {
+      setPaymentPurposes([]);
+      setSettingsError('');
+      setFormData((prev) => ({ ...prev, stateBaseCode: value, purpose: '', amount: '' }));
+      loadPaymentPurposes(value);
+    }
     
     if (name === 'purpose') {
       const selectedPurpose = paymentPurposes.find(p => p.value === value);
@@ -67,20 +109,26 @@ export default function PaymentPage() {
       form.append(key, value);
     });
 
-    const result: any = await initializePayment(form);
-
-    if (result.success) {
-      setPaymentReference(result.data.reference);
-      setShowPaymentModal(true);
-    } else {
-      setMessage('❌ ' + result.error);
+    try {
+      const result: any = await initializePayment(form);
+      if (result.success) {
+        setReceipt(null);
+        setPaymentReference(result.data.reference);
+        setShowPaymentModal(true);
+      } else {
+        setMessage('❌ ' + (result.error || result.message || 'Unable to initialize payment.'));
+      }
+    } catch {
+      setMessage('❌ Unable to initialize payment. Please try again.');
+    } finally {
+      setIsProcessing(false);
     }
-
-    setIsProcessing(false);
   };
 
   const publicKey = process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY;
-  
+  const fixedPaymentPurposes = paymentPurposes.filter(purpose => purpose.amount > 0);
+  const fixedAmount = formData.purpose ? paymentPurposes.find(p => p.value === formData.purpose)?.amount ?? 0 : 0;
+
   if (!publicKey) {
     return (
       <div className="payment-page">
@@ -113,6 +161,60 @@ export default function PaymentPage() {
     );
   }
 
+  if (receipt) {
+    const receiptPurpose = paymentPurposes.find((purpose) => purpose.value === receipt.purpose);
+    const receiptDate = new Date(receipt.paymentDate);
+
+    return (
+      <main className="payment-page receipt-page">
+        <section className="payment-container payment-receipt" aria-labelledby="receipt-title">
+          <div className="payment-header receipt-header">
+            <h1 id="receipt-title">Payment receipt</h1>
+            <p>EX-POLS Kano · Payment confirmed</p>
+          </div>
+          <div className="receipt-body">
+            <p className="receipt-confirmed" role="status">Payment confirmed successfully</p>
+            <p className="receipt-amount">
+              {new Intl.NumberFormat('en-NG', {
+                style: 'currency',
+                currency: receipt.currency,
+                maximumFractionDigits: 2,
+              }).format(receipt.amount)}
+            </p>
+            <dl className="receipt-details">
+              <div><dt>Receipt reference</dt><dd>{receipt.paystackReference}</dd></div>
+              <div><dt>Transaction ID</dt><dd>{receipt.paystackTransactionId}</dd></div>
+              <div><dt>Payment date</dt><dd>{Number.isNaN(receiptDate.getTime()) ? '—' : receiptDate.toLocaleString('en-NG')}</dd></div>
+              <div><dt>Paid by</dt><dd>{receipt.fullName}</dd></div>
+              <div><dt>EX-POLS ID</dt><dd>{receipt.expolIdNumber}</dd></div>
+              <div><dt>Chapter</dt><dd>{STATE_BASE_OPTIONS.find((base) => base.code === receipt.stateBaseCode)?.name || receipt.stateBaseCode}</dd></div>
+              <div><dt>Email</dt><dd>{receipt.email}</dd></div>
+              <div><dt>Phone</dt><dd>{receipt.phone}</dd></div>
+              <div><dt>Purpose</dt><dd>{receipt.customReason || receiptPurpose?.label || receipt.purpose}</dd></div>
+              <div><dt>Status</dt><dd className="receipt-status">{receipt.status.toUpperCase()}</dd></div>
+            </dl>
+            <div className="receipt-actions">
+              <button type="button" className="payment-submit-btn" onClick={() => window.print()}>
+                Print / Save receipt
+              </button>
+              <button
+                type="button"
+                className="cancel-btn"
+                onClick={() => {
+                  setReceipt(null);
+                  setMessage('');
+                  setPaymentReference('');
+                }}
+              >
+                Make another payment
+              </button>
+            </div>
+          </div>
+        </section>
+      </main>
+    );
+  }
+
   const paystackConfig = {
     reference: paymentReference,
     email: formData.email,
@@ -129,7 +231,8 @@ export default function PaymentPage() {
     onSuccess: async (reference: any) => {
       try {
         const result: any = await verifyPayment(reference.reference);
-        if (result.success) {
+        if (result.success && result.receipt?.status === 'success') {
+          setReceipt(result.receipt);
           setMessage('✅ Payment successful! Thank you for your payment.');
           setShowPaymentModal(false);
           setFormData({
@@ -140,7 +243,8 @@ export default function PaymentPage() {
             purpose: '',
             customReason: '',
             amount: '',
-            notes: ''
+            notes: '',
+            stateBaseCode: formData.stateBaseCode
           });
         } else {
           setMessage('⚠️ Payment completed but verification failed. Please contact support.');
@@ -170,6 +274,16 @@ export default function PaymentPage() {
         )}
 
         <form onSubmit={handleSubmit} className="payment-form">
+          {settingsError && (
+            <div className="payment-message error" role="alert">{settingsError}</div>
+          )}
+          <div className="form-group">
+            <label htmlFor="payment-state-base">Chapter *</label>
+            <select id="payment-state-base" name="stateBaseCode" value={formData.stateBaseCode} onChange={handleInputChange} disabled={chapterLocked} required>
+              {STATE_BASE_OPTIONS.map(({ name, code }) => <option key={code} value={code}>{name}</option>)}
+            </select>
+            {chapterLocked && <input type="hidden" name="stateBaseCode" value={formData.stateBaseCode} />}
+          </div>
           <div className="form-group">
             <label>Expol ID Number *</label>
             <input
@@ -236,6 +350,32 @@ export default function PaymentPage() {
                 </option>
               ))}
             </select>
+            {paymentPurposes.length === 0 && (
+              <small role="alert">No payment options are currently available.</small>
+            )}
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="fixed-payment-amount">Choose a fixed amount</label>
+            <select
+              id="fixed-payment-amount"
+              name="purpose"
+              value={fixedAmount > 0 ? formData.purpose : ''}
+              onChange={handleInputChange}
+              disabled={fixedPaymentPurposes.length === 0}
+            >
+              <option value="">
+                {fixedPaymentPurposes.length > 0
+                  ? '-- Select a fixed amount --'
+                  : '-- No fixed amounts configured --'}
+              </option>
+              {fixedPaymentPurposes.map(purpose => (
+                <option key={purpose.value} value={purpose.value}>
+                  {purpose.label} — ₦{purpose.amount.toLocaleString('en-NG')}
+                </option>
+              ))}
+            </select>
+            <small>Fixed amounts and payment purposes are configured by an administrator.</small>
           </div>
 
           {formData.purpose === 'other' && (
@@ -263,11 +403,11 @@ export default function PaymentPage() {
               min="100"
               step="100"
               required
-              disabled={formData.purpose && paymentPurposes.find(p => p.value === formData.purpose)?.amount! > 0}
+              disabled={fixedAmount > 0}
             />
             <small>
-              {formData.purpose && paymentPurposes.find(p => p.value === formData.purpose)?.amount! > 0 
-                ? 'Amount is fixed for this purpose' 
+              {fixedAmount > 0
+                ? 'Amount is fixed for this purpose'
                 : 'Minimum amount: ₦100'}
             </small>
           </div>
@@ -283,7 +423,11 @@ export default function PaymentPage() {
             />
           </div>
 
-          <button type="submit" className="payment-submit-btn" disabled={isProcessing}>
+          <button
+            type="submit"
+            className="payment-submit-btn"
+            disabled={isProcessing || paymentPurposes.length === 0 || Boolean(settingsError)}
+          >
             {isProcessing ? 'Processing...' : 'Proceed to Payment'}
           </button>
         </form>

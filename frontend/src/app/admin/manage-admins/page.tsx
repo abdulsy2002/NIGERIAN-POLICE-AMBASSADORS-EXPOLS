@@ -77,7 +77,7 @@ export default function ManageAdminsPage() {
 
   return (
     <div className="admin-dashboard">
-      <AdminNavbar activeTab="manage-admins" setActiveTab={() => {}} data={{ alumni: [], ambassadors: [], reunions: [], messages: [] }} galleryImages={[]} boardMembers={[]} />
+      <AdminNavbar activeTab="manage-admins" setActiveTab={() => {}} galleryImages={[]} boardMembers={[]} summary={{ alumni: 0, ambassadors: 0, reunions: 0, messages: 0 }} />
       
       <div className="admin-content-wrapper">
         <div className="content-card">

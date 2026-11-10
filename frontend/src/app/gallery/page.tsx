@@ -3,6 +3,7 @@ import './gallery.css';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { getGalleryImages } from '@/app/actions';
+import { STATE_BASE_OPTIONS } from '@/lib/stateBaseCodes';
 
 export default function GalleryPage() {
   const [heroText, setHeroText] = useState('');
@@ -15,44 +16,90 @@ export default function GalleryPage() {
   // New state for database images
   const [databaseImages, setDatabaseImages] = useState<any[]>([]);
   const [loadingDbImages, setLoadingDbImages] = useState(true);
+  const [stateBaseCode, setStateBaseCode] = useState('NAT');
+  const [chapterLocked, setChapterLocked] = useState(false);
+  const [galleryReady, setGalleryReady] = useState(false);
+  const [galleryError, setGalleryError] = useState('');
+  const [galleryPagination, setGalleryPagination] = useState<any>(null);
+  const [galleryPage, setGalleryPage] = useState(1);
 
-  // Fetch database images on mount
   useEffect(() => {
-    const fetchDbImages = async () => {
-      setLoadingDbImages(true);
-      const result = await getGalleryImages();
+    let active = true;
+    fetch('/api/check-auth', { cache: 'no-store' }).then(async (response) => {
+      if (!active) return;
+      if (response.ok) {
+        const data = await response.json();
+        if (data.user?.stateBaseCode) {
+          setStateBaseCode(data.user.stateBaseCode);
+          setChapterLocked(true);
+        }
+      }
+      if (active) setGalleryReady(true);
+    }).catch((error: unknown) => {
+      console.error('Unable to resolve gallery chapter.', error);
+      if (active) setGalleryReady(true);
+    });
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    if (!galleryReady) return;
+    let active = true;
+    setLoadingDbImages(true);
+    setGalleryError('');
+    getGalleryImages(stateBaseCode, false, galleryPage).then((result) => {
+      if (!active) return;
       if (result.success) {
         setDatabaseImages(result.data);
+        setGalleryPagination(result.pagination);
+      } else {
+        setGalleryError(result.error || 'Unable to load gallery images.');
       }
       setLoadingDbImages(false);
-    };
-    fetchDbImages();
-  }, []);
+    }).catch((error: unknown) => {
+      if (!active) return;
+      console.error('Unable to load gallery images.', error);
+      setGalleryError('Unable to load gallery images.');
+      setLoadingDbImages(false);
+    });
+    return () => { active = false; };
+  }, [galleryReady, stateBaseCode, galleryPage]);
 
   // Hero typing effect
   useEffect(() => {
     const texts = ['Pictures Gallery', 'Photo Archive', 'Memory Lane'];
-    let textIndex = 0, charIndex = 0, isDeleting = false;
-    
+    // Use a ref object so the closure always reads the latest values
+    const state = { textIndex: 0, charIndex: 0, isDeleting: false };
+    let timerId: ReturnType<typeof setTimeout>;
+
     const type = () => {
-      const current = texts[textIndex];
-      setHeroText(isDeleting 
-        ? current.substring(0, charIndex - 1) 
-        : current.substring(0, charIndex + 1));
-      charIndex += isDeleting ? -1 : 1;
-      
-      let speed = isDeleting ? 40 : 80;
-      if (!isDeleting && charIndex === current.length) { 
-        speed = 2000; 
-        isDeleting = true; 
-      } else if (isDeleting && charIndex === 0) { 
-        isDeleting = false; 
-        textIndex = (textIndex + 1) % texts.length; 
-        speed = 400; 
+      const current = texts[state.textIndex];
+
+      if (state.isDeleting) {
+        state.charIndex--;
+        setHeroText(current.substring(0, state.charIndex));
+      } else {
+        state.charIndex++;
+        setHeroText(current.substring(0, state.charIndex));
       }
-      setTimeout(type, speed);
+
+      let speed = state.isDeleting ? 40 : 80;
+
+      if (!state.isDeleting && state.charIndex === current.length) {
+        speed = 2000; // pause at end of word
+        state.isDeleting = true;
+      } else if (state.isDeleting && state.charIndex === 0) {
+        state.isDeleting = false;
+        state.textIndex = (state.textIndex + 1) % texts.length;
+        speed = 400; // pause before next word
+      }
+
+      timerId = setTimeout(type, speed);
     };
-    setTimeout(type, 1000);
+
+    timerId = setTimeout(type, 1000);
+    // Cleanup: cancel the timer when the component unmounts
+    return () => clearTimeout(timerId);
   }, []);
 
   // CTA typing effect
@@ -68,33 +115,36 @@ export default function GalleryPage() {
       "Your photos help keep our alumni legacy alive for future generations across Nigeria."
     ];
 
-    let textIndex = 0, charIndex = 0, isDeleting = false;
+    const state = { textIndex: 0, charIndex: 0, isDeleting: false };
+    let timerId: ReturnType<typeof setTimeout>;
 
     const typeGalleryEffect = () => {
-      const currentTitle = galleryTitles[textIndex];
-      const currentParagraph = galleryParagraphs[textIndex];
+      const currentTitle = galleryTitles[state.textIndex];
+      const currentParagraph = galleryParagraphs[state.textIndex];
 
-      if (!isDeleting) {
-        setCtaTitle(currentTitle.substring(0, charIndex + 1));
-        charIndex++;
-        if (charIndex === currentTitle.length) {
+      if (!state.isDeleting) {
+        state.charIndex++;
+        setCtaTitle(currentTitle.substring(0, state.charIndex));
+        if (state.charIndex === currentTitle.length) {
           setCtaParagraph(currentParagraph);
-          isDeleting = true;
-          setTimeout(typeGalleryEffect, 2000);
+          state.isDeleting = true;
+          timerId = setTimeout(typeGalleryEffect, 2000); // pause at full word
           return;
         }
       } else {
-        setCtaTitle(currentTitle.substring(0, charIndex - 1));
-        charIndex--;
-        if (charIndex === 0) {
-          isDeleting = false;
-          textIndex++;
-          if (textIndex >= galleryTitles.length) textIndex = 0;
+        state.charIndex--;
+        setCtaTitle(currentTitle.substring(0, state.charIndex));
+        if (state.charIndex === 0) {
+          state.isDeleting = false;
+          state.textIndex = (state.textIndex + 1) % galleryTitles.length;
         }
       }
-      setTimeout(typeGalleryEffect, isDeleting ? 50 : 100);
+
+      timerId = setTimeout(typeGalleryEffect, state.isDeleting ? 50 : 100);
     };
-    typeGalleryEffect();
+
+    timerId = setTimeout(typeGalleryEffect, 500);
+    return () => clearTimeout(timerId);
   }, []);
 
   // Scroll to top
@@ -274,11 +324,19 @@ export default function GalleryPage() {
           <div className="gallery-header">
             <h3>🆕 Recent Uploads</h3>
             <p>Latest photos added by our admin team</p>
+            <label htmlFor="gallery-state-base">Chapter: </label>
+            <select id="gallery-state-base" value={stateBaseCode} onChange={(event) => { setGalleryPage(1); setStateBaseCode(event.target.value); }} disabled={chapterLocked}>
+              {STATE_BASE_OPTIONS.map(({ name, code }) => <option key={code} value={code}>{name}</option>)}
+            </select>
           </div>
           
           {loadingDbImages ? (
             <div className="text-center" style={{padding: '60px 20px'}}>
               <p style={{fontSize: '1.2rem', color: 'var(--color-text-light)'}}>Loading photos...</p>
+            </div>
+          ) : galleryError ? (
+            <div className="text-center" style={{padding: '60px 20px'}}>
+              <p role="alert" style={{color: '#b91c1c'}}>{galleryError}</p>
             </div>
           ) : databaseImages.length === 0 ? (
             <div className="text-center" style={{padding: '60px 20px'}}>
@@ -290,8 +348,8 @@ export default function GalleryPage() {
           ) : (
             <>
               <div className="gallery-grid">
-                {databaseImages.map((img) => (
-                  <div key={img._id} className="gallery-item">
+                {databaseImages.map((img, index) => (
+                  <div key={img.id || img._id || `${img.title || 'gallery-image'}-${index}`} className="gallery-item">
                     <img src={img.imageUrl} alt={img.title} loading="lazy" />
                     <div className="gallery-overlay">
                       <h4>{img.title}</h4>
@@ -307,8 +365,15 @@ export default function GalleryPage() {
               
               <div className="text-center" style={{marginTop: '30px'}}>
                 <p style={{color: 'var(--color-text-light)', fontSize: '0.95rem'}}>
-                  Showing {databaseImages.length} photo{databaseImages.length !== 1 ? 's' : ''}
+                  Showing {databaseImages.length} of {galleryPagination?.total ?? databaseImages.length} photos
                 </p>
+                {galleryPagination?.totalPages > 1 && (
+                  <div style={{display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '12px', marginTop: '16px'}}>
+                    <button className="btn btn-outline" disabled={galleryPage <= 1} onClick={() => setGalleryPage(page => page - 1)}>Previous</button>
+                    <span>Page {galleryPage} of {galleryPagination.totalPages}</span>
+                    <button className="btn btn-outline" disabled={galleryPage >= galleryPagination.totalPages} onClick={() => setGalleryPage(page => page + 1)}>Next</button>
+                  </div>
+                )}
               </div>
             </>
           )}

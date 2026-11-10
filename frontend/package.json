@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --webpack",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
@@ -24,7 +24,6 @@
     "jspdf": "^4.2.1",
     "lucide-react": "^0.378.0",
     "mongodb": "^7.5.0",
-    "mongoose": "^9.6.3",
     "next": "^16.2.7",
     "next-auth": "^4.24.14",
     "qrcode": "^1.5.4",

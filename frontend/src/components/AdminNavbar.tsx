@@ -11,24 +11,24 @@ type ActiveTab = 'overview' | 'alumni' | 'ambassadors' | 'reunion' | 'messages' 
 interface AdminNavbarProps {
   activeTab: ActiveTab;
   setActiveTab: (tab: ActiveTab) => void;
-  data: {
-    alumni: any[];
-    ambassadors: any[];
-    reunions: any[];
-    messages: any[];
-  };
   galleryImages: any[];
   boardMembers: any[];
   adminRole?: string;
+  summary: {
+    alumni: number;
+    ambassadors: number;
+    reunions: number;
+    messages: number;
+  };
 }
 
 export default function AdminNavbar({ 
   activeTab, 
   setActiveTab, 
-  data, 
   galleryImages, 
   boardMembers, 
-  adminRole
+  adminRole,
+  summary,
 }: AdminNavbarProps) {
   const router = useRouter();
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -87,16 +87,16 @@ export default function AdminNavbar({
             📊 Overview
           </button>
           <button onClick={() => handleNavClick('alumni')} className={`admin-nav-btn ${activeTab === 'alumni' ? 'active' : ''}`} style={{ width: '100%', textAlign: 'left', justifyContent: 'space-between' }}>
-            <span>👥 Alumni</span> <span className="nav-count">{data.alumni.length}</span>
+            <span>👥 Alumni</span> <span className="nav-count">{summary.alumni}</span>
           </button>
           <button onClick={() => handleNavClick('ambassadors')} className={`admin-nav-btn ${activeTab === 'ambassadors' ? 'active' : ''}`} style={{ width: '100%', textAlign: 'left', justifyContent: 'space-between' }}>
-            <span>🌟 Ambassadors</span> <span className="nav-count">{data.ambassadors.length}</span>
+            <span>🌟 Ambassadors</span> <span className="nav-count">{summary.ambassadors}</span>
           </button>
           <button onClick={() => handleNavClick('reunion')} className={`admin-nav-btn ${activeTab === 'reunion' ? 'active' : ''}`} style={{ width: '100%', textAlign: 'left', justifyContent: 'space-between' }}>
-            <span>🎫 Reunion</span> <span className="nav-count">{data.reunions.length}</span>
+            <span>🎫 Reunion</span> <span className="nav-count">{summary.reunions}</span>
           </button>
           <button onClick={() => handleNavClick('messages')} className={`admin-nav-btn ${activeTab === 'messages' ? 'active' : ''}`} style={{ width: '100%', textAlign: 'left', justifyContent: 'space-between' }}>
-            <span>✉️ Messages</span> <span className="nav-count">{data.messages.length}</span>
+            <span>✉️ Messages</span> <span className="nav-count">{summary.messages}</span>
           </button>
           <button onClick={() => handleNavClick('broadcast')} className={`admin-nav-btn ${activeTab === 'broadcast' ? 'active' : ''}`} style={{ width: '100%', textAlign: 'left', justifyContent: 'flex-start' }}>
             📢 Broadcast
@@ -104,20 +104,20 @@ export default function AdminNavbar({
           <button onClick={() => handleNavClick('gallery')} className={`admin-nav-btn ${activeTab === 'gallery' ? 'active' : ''}`} style={{ width: '100%', textAlign: 'left', justifyContent: 'space-between' }}>
             <span>🖼️ Gallery</span> <span className="nav-count">{galleryImages.length}</span>
           </button>
-          <button onClick={() => handleNavClick('leadership')} className={`admin-nav-btn ${activeTab === 'leadership' ? 'active' : ''}`} style={{ width: '100%', textAlign: 'left', justifyContent: 'space-between' }}>
+          {adminRole !== 'STATE_ADMIN' && <button onClick={() => handleNavClick('leadership')} className={`admin-nav-btn ${activeTab === 'leadership' ? 'active' : ''}`} style={{ width: '100%', textAlign: 'left', justifyContent: 'space-between' }}>
             <span>🏛️ Leadership</span> <span className="nav-count">{boardMembers.length}</span>
-          </button>
+          </button>}
           <button onClick={() => handleNavClick('profile-requests')} className={`admin-nav-btn ${activeTab === 'profile-requests' ? 'active' : ''}`} style={{ width: '100%', textAlign: 'left', justifyContent: 'flex-start' }}>
             🔄 Profile Requests
           </button>
           <button onClick={() => handleNavClick('reunion-settings')} className={`admin-nav-btn ${activeTab === 'reunion-settings' ? 'active' : ''}`} style={{ width: '100%', textAlign: 'left', justifyContent: 'flex-start' }}>
             ⚙️ Reunion Settings
           </button>
-          <button onClick={() => handleNavClick('audit-logs')} className={`admin-nav-btn ${activeTab === 'audit-logs' ? 'active' : ''}`} style={{ width: '100%', textAlign: 'left', justifyContent: 'flex-start' }}>
+          {adminRole !== 'STATE_ADMIN' && <button onClick={() => handleNavClick('audit-logs')} className={`admin-nav-btn ${activeTab === 'audit-logs' ? 'active' : ''}`} style={{ width: '100%', textAlign: 'left', justifyContent: 'flex-start' }}>
             🔒 Audit Logs
-          </button>
+          </button>}
           
-          {adminRole === 'super_admin' && (
+          {adminRole === 'SUPER_ADMIN' && (
             <button onClick={() => handleNavClick('manage-admins')} className={`admin-nav-btn ${activeTab === 'manage-admins' ? 'active' : ''}`} style={{ width: '100%', textAlign: 'left', justifyContent: 'flex-start' }}>
               👤 Manage Admins
             </button>

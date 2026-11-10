@@ -27,20 +27,29 @@ export default function AboutPage() {
       'Connecting Alumni Nationwide',
       'Empowering Future Generations'
     ];
-    let textIndex = 0;
-    let charIndex = 0;
-    let isDeleting = false;
+    const state = { textIndex: 0, charIndex: 0, isDeleting: false };
+    let timerId: ReturnType<typeof setTimeout>;
 
     const typeEffect = () => {
-      const currentText = texts[textIndex];
-      setHeroText(isDeleting ? currentText.substring(0, charIndex--) : currentText.substring(0, charIndex++));
-      
-      let speed = isDeleting ? 50 : 100;
-      if (!isDeleting && charIndex === currentText.length + 1) { speed = 2000; isDeleting = true; }
-      if (isDeleting && charIndex === 0) { isDeleting = false; textIndex = (textIndex + 1) % texts.length; }
-      setTimeout(typeEffect, speed);
+      const currentText = texts[state.textIndex];
+
+      if (state.isDeleting) {
+        state.charIndex--;
+        setHeroText(currentText.substring(0, state.charIndex));
+      } else {
+        state.charIndex++;
+        setHeroText(currentText.substring(0, state.charIndex));
+      }
+
+      let speed = state.isDeleting ? 50 : 100;
+      if (!state.isDeleting && state.charIndex === currentText.length) { speed = 2000; state.isDeleting = true; }
+      if (state.isDeleting && state.charIndex === 0) { state.isDeleting = false; state.textIndex = (state.textIndex + 1) % texts.length; }
+
+      timerId = setTimeout(typeEffect, speed);
     };
-    setTimeout(typeEffect, 200);
+
+    timerId = setTimeout(typeEffect, 200);
+    return () => clearTimeout(timerId);
   }, []);
 
   // 2. CTA TYPING EFFECT
@@ -55,32 +64,35 @@ export default function AboutPage() {
       "Connect with professionals, mentors, and old classmates through our growing alumni community.",
       "Register today and stay updated on reunions, opportunities, and community activities."
     ];
-    let textIndex = 0, charIndex = 0, isDeleting = false;
+    const state = { textIndex: 0, charIndex: 0, isDeleting: false };
+    let timerId: ReturnType<typeof setTimeout>;
 
     const typeCTAEffect = () => {
-      const currentTitle = ctaTitles[textIndex];
-      const currentParagraph = ctaParagraphs[textIndex];
+      const currentTitle = ctaTitles[state.textIndex];
+      const currentParagraph = ctaParagraphs[state.textIndex];
 
-      if (!isDeleting) {
-        setCtaTitle(currentTitle.substring(0, charIndex + 1));
-        charIndex++;
-        if (charIndex === currentTitle.length) {
+      if (!state.isDeleting) {
+        state.charIndex++;
+        setCtaTitle(currentTitle.substring(0, state.charIndex));
+        if (state.charIndex === currentTitle.length) {
           setCtaParagraph(currentParagraph);
-          isDeleting = true;
-          setTimeout(typeCTAEffect, 2000);
+          state.isDeleting = true;
+          timerId = setTimeout(typeCTAEffect, 2000);
           return;
         }
       } else {
-        setCtaTitle(currentTitle.substring(0, charIndex - 1));
-        charIndex--;
-        if (charIndex === 0) {
-          isDeleting = false;
-          textIndex = (textIndex + 1) % ctaTitles.length;
+        state.charIndex--;
+        setCtaTitle(currentTitle.substring(0, state.charIndex));
+        if (state.charIndex === 0) {
+          state.isDeleting = false;
+          state.textIndex = (state.textIndex + 1) % ctaTitles.length;
         }
       }
-      setTimeout(typeCTAEffect, isDeleting ? 50 : 100);
+      timerId = setTimeout(typeCTAEffect, state.isDeleting ? 50 : 100);
     };
-    typeCTAEffect();
+
+    timerId = setTimeout(typeCTAEffect, 200);
+    return () => clearTimeout(timerId);
   }, []);
 
   // 3. SCROLL TO TOP VISIBILITY

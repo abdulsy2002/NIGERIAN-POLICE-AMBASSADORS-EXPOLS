@@ -4,9 +4,10 @@ import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { resetPassword, verifyResetToken } from '@/app/actions';
 import Link from 'next/link';
+import { Suspense } from 'react';
 import './login.css';
 
-export default function ResetPasswordPage() {
+function ResetPasswordForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get('token');
@@ -170,5 +171,13 @@ export default function ResetPasswordPage() {
         </p>
       </div>
     </section>
+  );
+}
+
+export default function ResetPasswordPage() {
+  return (
+    <Suspense fallback={<section className="login-section" aria-busy="true" />}>
+      <ResetPasswordForm />
+    </Suspense>
   );
 }

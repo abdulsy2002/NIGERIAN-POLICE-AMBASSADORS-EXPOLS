@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { logoutUser } from "@/app/actions";
 import { SideDrawer } from "@/components/SideDrawer";
@@ -22,14 +22,32 @@ const NAV_LINKS = [
   { href: "/payment",     label: "Payment",       icon: <CreditCard size={18} /> },
 ];
 
-export default function Navbar({ isLoggedIn }: { isLoggedIn: boolean }) {
+export default function Navbar() {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
 
+  useEffect(() => {
+    let active = true;
+    fetch('/api/check-auth', { cache: 'no-store' })
+      .then(async (response) => {
+        if (!active || !response.ok) return;
+        const session = await response.json();
+        if (active) setIsLoggedIn(Boolean(session.loggedIn));
+      })
+      .catch((error: unknown) => {
+        console.error('Unable to check the current session status.', error);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const handleLogout = async () => {
     setDrawerOpen(false);
     await logoutUser();
+    setIsLoggedIn(false);
     router.push("/login");
     router.refresh();
   };

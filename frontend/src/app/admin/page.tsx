@@ -2,12 +2,13 @@
 
 import { useState, useEffect, useRef } from 'react';
 import {
-  getAdminData, approveUser, deleteRecord, sendBroadcast, getBroadcasts, getAllSupportTickets,
-  uploadGalleryImage, getGalleryImages, updateGalleryImage,
+  getAdminData, getAdminSummary, approveUser, deleteRecord, sendBroadcast, getBroadcasts, getAllSupportTickets,
+  uploadGalleryImage, getGalleryImages, updateGalleryImage, deleteGalleryImage,
   getBoardMembers, saveBoardMember, deleteBoardMember,
-  getReunionSettings, updateReunionSettings, getUserDetails, getAuditLogs,
+  getReunionSettings, updateReunionSettings, getAuditLogs,
   getAllAdmins, addNewAdmin, deleteAdmin,
   getAdminSession,
+  getUserDetails,
   respondToTicket,
   updateTicketStatus,
   getAllPayments,
@@ -24,16 +25,27 @@ import DetailViewer from '@/components/DetailViewer';
 import ConfirmAction from '@/components/ConfirmAction';
 import DataTable from '@/components/DataTable';
 import BoardMemberIDCard from '@/components/BoardMemberIDCars';
+import { STATE_BASE_OPTIONS } from '@/lib/stateBaseCodes';
+import { getUploadError, MEMBER_IMAGE_TYPES } from '@/lib/upload-validation';
 
 type ActiveTab = 'overview' | 'alumni' | 'ambassadors' | 'reunion' | 'messages' | 'broadcast' | 'gallery' | 'leadership' | 'reunion-settings' | 'audit-logs' | 'manage-admins' | 'support' | 'payments' | 'payment-settings' | 'profile-requests';
 
 function normalizeToCardProps(member: any, type: 'alumni' | 'ambassador'): any {
+  let chapter = 'NAT';
+  if (member.stateBaseName) {
+    chapter = member.stateBaseName.replace(/\s*base$/i, '').trim().toUpperCase();
+  } else if (member.stateBaseCode) {
+    chapter = member.stateBaseCode.toUpperCase();
+  }
+  const year = new Date().getFullYear();
+  const defaultId = `NPAE/${chapter}/${year}/0001`;
   return {
     memberType: type,
     fullName: member.fullName || 'Unknown',
-    identityNumber: member.identityNumber || 'PENDING',
+    identityNumber: member.identityNumber || defaultId,
     passportPhoto: member.passportPhoto || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTUwIiBoZWlnaHQ9IjE1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTUwIiBoZWlnaHQ9IjE1MCIgZmlsbD0iI2RkZCIvPjxjaXJjbGUgY3g9Ijc1IiBjeT0iNjAiIHI9IjMwIiBmaWxsPSIjOTk5Ii8+PHBhdGggZD0iTTMwIDEyMCBRNzUgOTAgMTIwIDEyMCIgZmlsbD0iIzk5OSIvPjwvc3ZnPg==',
-    chapterCode: member.stateBaseCode || 'NAT',
+    chapterCode: chapter,
+    stateChapter: chapter,
     schoolOrOrg: member.schoolAttended || member.organization || 'NPAE',
   };
 }
@@ -48,8 +60,12 @@ export default function AdminDashboard() {
   const [profileRequestsLoading, setProfileRequestsLoading] = useState(false);
 
   const [activeTab, setActiveTab] = useState<ActiveTab>('overview');
-  const [data, setData] = useState<any>(null);
+  const [data, setData] = useState<any>({ alumni: [], ambassadors: [], reunions: [], messages: [] });
+  const [summary, setSummary] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [loadingResource, setLoadingResource] = useState<string | null>(null);
+  const [listPages, setListPages] = useState<Record<string, number>>({});
+  const [listPagination, setListPagination] = useState<Record<string, any>>({});
 
   const [viewDetails, setViewDetails] = useState<any>(null);
   const [viewType, setViewType] = useState<'alumni' | 'ambassador' | 'reunion' | 'message'>('alumni');
@@ -57,10 +73,14 @@ export default function AdminDashboard() {
 
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
   const [auditLoading, setAuditLoading] = useState(false);
+  const [auditSearch, setAuditSearch] = useState('');
+  const [auditError, setAuditError] = useState('');
 
   const [selectedBaseFilter, setSelectedBaseFilter] = useState<string>('all');
+  const [featureScopeCode, setFeatureScopeCode] = useState<string>('ALL');
 
   const [broadcasts, setBroadcasts] = useState<any[]>([]);
+  const [broadcastListLoading, setBroadcastListLoading] = useState(false);
   const [broadcastForm, setBroadcastForm] = useState({ subject: '', message: '', sentTo: 'all', targetBaseCode: '' });
   const [broadcastLoading, setBroadcastLoading] = useState(false);
   const [broadcastMessage, setBroadcastMessage] = useState('');
@@ -83,6 +103,9 @@ export default function AdminDashboard() {
   const [showBoardMemberIDCard, setShowBoardMemberIDCard] = useState<any>(null);
   const [editingMember, setEditingMember] = useState<any>(null);
   const [leadershipMessage, setLeadershipMessage] = useState('');
+  const [leadershipSaving, setLeadershipSaving] = useState(false);
+  const leadershipFormRef = useRef<HTMLDivElement>(null);
+  const leadershipSavingRef = useRef(false);
 
   const [reunionSettings, setReunionSettings] = useState<any>(null);
   const [reunionSettingsMessage, setReunionSettingsMessage] = useState('');
@@ -96,6 +119,8 @@ export default function AdminDashboard() {
 
   const [admins, setAdmins] = useState<any[]>([]);
   const [adminRole, setAdminRole] = useState('');
+  const [adminStateBase, setAdminStateBase] = useState('');
+  const [adminStateBaseName, setAdminStateBaseName] = useState('');
   const [adminsLoading, setAdminsLoading] = useState(false);
   const [showAdminForm, setShowAdminForm] = useState(false);
   const [adminMessage, setAdminMessage] = useState('');
@@ -104,7 +129,7 @@ export default function AdminDashboard() {
     fullName: '',
     email: '',
     password: '',
-    role: 'state_admin',
+    role: 'STATE_ADMIN',
     stateBase: ''
   });
 
@@ -113,84 +138,150 @@ export default function AdminDashboard() {
     "Cross River", "Delta", "Ebonyi", "Edo", "Ekiti", "Enugu", "FCT - Abuja", "Gombe",
     "Imo", "Jigawa", "Kaduna", "Kano", "Katsina", "Kebbi", "Kogi", "Kwara", "Lagos",
     "Nasarawa", "Niger", "Ogun", "Ondo", "Osun", "Oyo", "Plateau", "Rivers", "Sokoto",
-    "Taraba", "Yobe", "Zamfara"
+    "Taraba", "Yobe", "Zamfara", "Diaspora"
   ];
 
   useEffect(() => {
-    fetchData();
     const getSession = async () => {
       const res: any = await getAdminSession();
       if (res) {
-        setAdminRole(res.role);
+        const role = String(res.role || '').toUpperCase();
+        setAdminRole(role);
+        setAdminStateBase(res.stateBase || '');
+        setAdminStateBaseName(res.stateBaseName || '');
+        if (role === 'STATE_ADMIN') {
+          setFeatureScopeCode(res.stateBase || '');
+          setSelectedBaseFilter(res.stateBase || 'all');
+          setBroadcastForm(current => ({
+            ...current,
+            sentTo: 'base',
+            targetBaseCode: res.stateBase || '',
+          }));
+        }
       }
     };
-    getSession();
+    const loadSummary = async () => {
+      const result: any = await getAdminSummary();
+      if (result.success) {
+        setSummary(result.data);
+      } else {
+        setAdminMessage(`Error: ${result.message || 'Unable to load admin summary.'}`);
+      }
+      setLoading(false);
+    };
+    void getSession();
+    void loadSummary();
   }, []);
 
-  const fetchData = async () => {
-    setLoading(true);
-    const result: any = await getAdminData();
+  const fetchData = async (
+    scopeCode?: string,
+    resource?: 'alumni' | 'ambassadors' | 'reunions' | 'messages',
+    _force = false,
+    page?: number,
+  ) => {
+    if (resource) setLoadingResource(resource);
+    else setLoading(true);
+    const requestedPage = page || (resource ? listPages[resource] || 1 : 1);
+    const result: any = await getAdminData(scopeCode, resource, requestedPage);
     if (result && result.success) {
-      setData({
-        alumni: Array.isArray(result.alumni) ? result.alumni : [],
-        ambassadors: Array.isArray(result.ambassadors) ? result.ambassadors : [],
-        reunions: Array.isArray(result.reunions) ? result.reunions : [],
-        messages: Array.isArray(result.messages) ? result.messages : []
-      });
+      if (resource) {
+        setData((current: any) => ({
+          ...current,
+          [resource]: Array.isArray(result[resource]) ? result[resource] : [],
+        }));
+        setListPagination((current) => ({ ...current, [resource]: result.pagination || { page: requestedPage, totalPages: 1, total: result[resource]?.length || 0 } }));
+      } else {
+        setData({
+          alumni: Array.isArray(result.alumni) ? result.alumni : [],
+          ambassadors: Array.isArray(result.ambassadors) ? result.ambassadors : [],
+          reunions: Array.isArray(result.reunions) ? result.reunions : [],
+          messages: Array.isArray(result.messages) ? result.messages : [],
+        });
+      }
     } else {
-      setData({ alumni: [], ambassadors: [], reunions: [], messages: [] });
+      setAdminMessage(`Error: ${result?.message || `Unable to load ${resource || 'admin records'}.`}`);
     }
-    setLoading(false);
+    if (resource) setLoadingResource(null);
+    else setLoading(false);
   };
 
-  const loadSupportTickets = async () => {
+  const loadSupportTickets = async (scopeCode = featureScopeCode) => {
     setSupportLoading(true);
-    const result: any = await getAllSupportTickets();
+    const requestedPage = listPages.support || 1;
+    const result: any = await getAllSupportTickets(scopeCode === 'ALL' ? undefined : scopeCode, requestedPage);
     if (result.success) {
       setSupportTickets(result.data);
+      setListPagination((current) => ({ ...current, support: result.pagination || { page: requestedPage, totalPages: 1, total: result.data.length } }));
+    } else {
+      setAdminMessage(`Error: ${result.error || 'Unable to load support tickets.'}`);
     }
     setSupportLoading(false);
   };
 
-  const loadTabData = async (tab: ActiveTab) => {
-    if (tab === 'broadcast' && broadcasts.length === 0) {
-      const result: any = await getBroadcasts();
-      if (result.success) setBroadcasts(result.data);
+  const loadTabData = async (tab: ActiveTab, scopeCode = featureScopeCode) => {
+    if (tab === 'broadcast') {
+      setBroadcastListLoading(true);
+      const requestedPage = listPages.broadcasts || 1;
+      const result: any = await getBroadcasts(requestedPage);
+      if (result.success) {
+        setBroadcasts(result.data);
+        setListPagination((current) => ({ ...current, broadcasts: result.pagination }));
+      } else {
+        setAdminMessage(`Error: ${result.error || 'Unable to load broadcasts.'}`);
+      }
+      setBroadcastListLoading(false);
     }
 
-    if (tab === 'support' && supportTickets.length === 0) {
-      await loadSupportTickets();
+    if (tab === 'support') {
+      await loadSupportTickets(scopeCode);
     }
 
-    if (tab === 'payments' && payments.length === 0) {
-      const result: any = await getAllPayments();
-      if (result.success) setPayments(result.data);
+    if (tab === 'payments') {
+      const requestedPage = listPages.payments || 1;
+      const result: any = await getAllPayments(scopeCode === 'ALL' ? undefined : scopeCode, requestedPage);
+      if (result.success) {
+        setPayments(result.data);
+        setListPagination((current) => ({ ...current, payments: result.pagination || { page: requestedPage, totalPages: 1, total: result.data.length } }));
+      } else {
+        setAdminMessage(`Error: ${result.error || 'Unable to load payments.'}`);
+      }
     }
 
-    if (tab === 'gallery' && galleryImages.length === 0) {
-      const result: any = await getGalleryImages();
-      if (result.success) setGalleryImages(result.data);
+    if (tab === 'gallery') {
+      const requestedPage = listPages.gallery || 1;
+      const result: any = await getGalleryImages(scopeCode, true, requestedPage);
+      if (result.success) {
+        setGalleryImages(result.data);
+        setListPagination((current) => ({ ...current, gallery: result.pagination || { page: requestedPage, totalPages: 1, total: result.data.length } }));
+      } else {
+        setAdminMessage(`Error: ${result.error || 'Unable to load gallery images.'}`);
+      }
     }
 
-    if (tab === 'leadership' && boardMembers.length === 0) {
+    if (tab === 'leadership') {
       const result: any = await getBoardMembers();
       if (result.success) setBoardMembers(result.data);
     }
 
     if (tab === 'reunion-settings' && !reunionSettings) {
-      const result: any = await getReunionSettings();
+      const result: any = await getReunionSettings(scopeCode === 'ALL' ? 'NAT' : scopeCode, true);
       if (result.success) setReunionSettings(result.data);
     }
 
     if (tab === 'payment-settings' && !paymentSettings) {
-      const result: any = await getPaymentSettings();
+      const result: any = await getPaymentSettings(scopeCode === 'ALL' ? 'NAT' : scopeCode, true);
       if (result.success) setPaymentSettings(result.data);
     }
 
     if (tab === 'audit-logs') {
       setAuditLoading(true);
+      setAuditError('');
       const result: any = await getAuditLogs();
-      if (result.success) setAuditLogs(result.data);
+      if (result.success) {
+        setAuditLogs(result.data);
+      } else {
+        setAuditError(result.error || result.message || 'Failed to fetch audit logs.');
+      }
       setAuditLoading(false);
     }
 
@@ -201,13 +292,56 @@ export default function AdminDashboard() {
       }
     }
 
-    if (tab === 'profile-requests' && profileRequests.length === 0) {
+    if (tab === 'profile-requests') {
       setProfileRequestsLoading(true);
-      const result: any = await getAdminProfileRequests();
+      const requestedPage = listPages['profile-requests'] || 1;
+      const result: any = await getAdminProfileRequests(requestedPage);
       if (result.success) {
         setProfileRequests(result.data);
+        setListPagination((current) => ({ ...current, 'profile-requests': result.pagination }));
+      } else {
+        setAdminMessage(`Error: ${result.error || 'Unable to load profile update requests'}`);
       }
       setProfileRequestsLoading(false);
+    }
+  };
+
+  const handleFeatureScopeChange = async (scopeCode: string) => {
+    setFeatureScopeCode(scopeCode);
+    const pageResource = activeTab === 'reunion' ? 'reunions' : activeTab === 'messages' ? 'messages' : activeTab;
+    setListPages((current) => ({ ...current, [pageResource]: 1 }));
+    const settingsScope = scopeCode === 'ALL' ? 'NAT' : scopeCode;
+    if (activeTab === 'reunion' || activeTab === 'messages') {
+      await fetchData(scopeCode, activeTab === 'reunion' ? 'reunions' : 'messages', true, 1);
+    }
+    if (activeTab === 'support') {
+      const result: any = await getAllSupportTickets(scopeCode === 'ALL' ? undefined : scopeCode, 1);
+      if (result.success) {
+        setSupportTickets(result.data);
+        setListPagination((current) => ({ ...current, support: result.pagination }));
+      } else setAdminMessage(`Error: ${result.error || 'Unable to load support tickets.'}`);
+    }
+    if (activeTab === 'payments') {
+      const result: any = await getAllPayments(scopeCode === 'ALL' ? undefined : scopeCode, 1);
+      if (result.success) {
+        setPayments(result.data);
+        setListPagination((current) => ({ ...current, payments: result.pagination }));
+      } else setAdminMessage(`Error: ${result.error || 'Unable to load payments.'}`);
+    }
+    if (activeTab === 'gallery') {
+      const result: any = await getGalleryImages(scopeCode, true, 1);
+      if (result.success) {
+        setGalleryImages(result.data);
+        setListPagination((current) => ({ ...current, gallery: result.pagination }));
+      } else setAdminMessage(`Error: ${result.error || 'Unable to load gallery images.'}`);
+    }
+    if (activeTab === 'reunion-settings') {
+      const result: any = await getReunionSettings(settingsScope, true);
+      if (result.success) setReunionSettings(result.data);
+    }
+    if (activeTab === 'payment-settings') {
+      const result: any = await getPaymentSettings(settingsScope, true);
+      if (result.success) setPaymentSettings(result.data);
     }
   };
 
@@ -222,23 +356,106 @@ export default function AdminDashboard() {
 
   const handleTabChange = (tab: ActiveTab) => {
     setActiveTab(tab);
-    loadTabData(tab);
+    const dataResource = tab === 'reunion'
+      ? 'reunions'
+      : tab === 'alumni' || tab === 'ambassadors' || tab === 'messages'
+        ? tab
+        : undefined;
+    if (dataResource) {
+      void fetchData(
+        tab === 'reunion' || tab === 'messages'
+          ? featureScopeCode
+          : tab === 'alumni' || tab === 'ambassadors'
+            ? selectedBaseFilter === 'all' ? undefined : selectedBaseFilter
+            : undefined,
+        dataResource,
+      );
+    }
+    void loadTabData(tab);
+  };
+
+  const handleListPageChange = async (resource: string, page: number) => {
+    setListPages((current) => ({ ...current, [resource]: page }));
+    if (resource === 'alumni' || resource === 'ambassadors' || resource === 'reunions' || resource === 'messages') {
+      const scopeCode = resource === 'alumni' || resource === 'ambassadors'
+        ? selectedBaseFilter === 'all' ? undefined : selectedBaseFilter
+        : featureScopeCode;
+      await fetchData(scopeCode, resource, true, page);
+      return;
+    }
+    if (resource === 'support') {
+      const result: any = await getAllSupportTickets(featureScopeCode === 'ALL' ? undefined : featureScopeCode, page);
+      if (result.success) {
+        setSupportTickets(result.data);
+        setListPagination((current) => ({ ...current, support: result.pagination }));
+      } else setAdminMessage(`Error: ${result.error || 'Unable to load support tickets.'}`);
+      return;
+    }
+    if (resource === 'payments') {
+      const result: any = await getAllPayments(featureScopeCode === 'ALL' ? undefined : featureScopeCode, page);
+      if (result.success) {
+        setPayments(result.data);
+        setListPagination((current) => ({ ...current, payments: result.pagination }));
+      } else setAdminMessage(`Error: ${result.error || 'Unable to load payments.'}`);
+      return;
+    }
+    if (resource === 'gallery') {
+      const result: any = await getGalleryImages(featureScopeCode, true, page);
+      if (result.success) {
+        setGalleryImages(result.data);
+        setListPagination((current) => ({ ...current, gallery: result.pagination }));
+      } else setAdminMessage(`Error: ${result.error || 'Unable to load gallery images.'}`);
+      return;
+    }
+    if (resource === 'broadcasts') {
+      setBroadcastListLoading(true);
+      const result: any = await getBroadcasts(page);
+      if (result.success) {
+        setBroadcasts(result.data);
+        setListPagination((current) => ({ ...current, broadcasts: result.pagination }));
+      } else setAdminMessage(`Error: ${result.error || 'Unable to load broadcasts.'}`);
+      setBroadcastListLoading(false);
+      return;
+    }
+    if (resource === 'profile-requests') {
+      setProfileRequestsLoading(true);
+      const result: any = await getAdminProfileRequests(page);
+      if (result.success) {
+        setProfileRequests(result.data);
+        setListPagination((current) => ({ ...current, 'profile-requests': result.pagination }));
+      } else setAdminMessage(`Error: ${result.error || 'Unable to load profile update requests.'}`);
+      setProfileRequestsLoading(false);
+    }
   };
 
   const handleApprove = async (userId: string, userType: 'alumni' | 'ambassador') => {
     const adminEmail = 'admin@npae.gov.ng';
     const result = await approveUser(userId, userType, adminEmail);
-    if (result.success) fetchData();
+    if (result.success) {
+      const resource = userType === 'alumni' ? 'alumni' : 'ambassadors';
+      void fetchData(
+        selectedBaseFilter === 'all' ? undefined : selectedBaseFilter,
+        resource,
+        true,
+      );
+    }
   };
 
   const handleProcessProfileRequest = async (requestId: string, action: 'approve' | 'reject') => {
     const result = await processAdminProfileRequest(requestId, action);
     if (result.success) {
-      // Reload profile requests
       setProfileRequestsLoading(true);
-      const refreshResult: any = await getAdminProfileRequests();
+      const currentPage = listPages['profile-requests'] || 1;
+      let refreshResult: any = await getAdminProfileRequests(currentPage);
+      let refreshedPage = currentPage;
+      if (refreshResult.success && refreshResult.data.length === 0 && currentPage > 1) {
+        refreshedPage = currentPage - 1;
+        refreshResult = await getAdminProfileRequests(refreshedPage);
+        setListPages((current) => ({ ...current, 'profile-requests': refreshedPage }));
+      }
       if (refreshResult.success) {
         setProfileRequests(refreshResult.data);
+        setListPagination((current) => ({ ...current, 'profile-requests': refreshResult.pagination }));
       }
       setProfileRequestsLoading(false);
       
@@ -254,19 +471,59 @@ export default function AdminDashboard() {
   const handleDelete = async (recordId: string, recordType: 'alumni' | 'ambassador' | 'reunion' | 'message') => {
     const adminEmail = 'admin@npae.gov.ng';
     const result = await deleteRecord(recordId, recordType, adminEmail);
-    if (result.success) fetchData();
+    if (result.success) {
+      const resource = recordType === 'alumni' || recordType === 'ambassador'
+        ? recordType === 'alumni' ? 'alumni' : 'ambassadors'
+        : recordType === 'reunion' ? 'reunions' : 'messages';
+      void fetchData(
+        resource === 'reunions' || resource === 'messages'
+          ? featureScopeCode
+          : resource === 'alumni' || resource === 'ambassadors'
+            ? selectedBaseFilter === 'all' ? undefined : selectedBaseFilter
+            : undefined,
+        resource,
+        true,
+      );
+    }
+  };
+
+  const handleEditBoardMember = (member: any) => {
+    setEditingMember(member);
+    setLeadershipForm({
+      name: member.name || '',
+      role: member.role || '',
+      bio: member.bio || '',
+      photoUrl: member.photoUrl || '',
+      isFeatured: !!member.isFeatured,
+      linkedin: member.linkedin || '',
+      twitter: member.twitter || '',
+    });
+    requestAnimationFrame(() => {
+      leadershipFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      leadershipFormRef.current?.querySelector<HTMLInputElement>('input')?.focus();
+    });
   };
 
   const handleViewDetails = async (item: any, type: 'alumni' | 'ambassador' | 'reunion' | 'message') => {
     if (type === 'alumni' || type === 'ambassador') {
-      const result = await getUserDetails(item._id, type);
-      if (result.success && 'data' in result) {
-        setViewDetails(result.data);
+      const result: any = await getUserDetails(item.id, type);
+      if (!result.success) {
+        setAdminMessage(`Error: ${result.error || 'Unable to load member details.'}`);
+        return;
       }
-    } else {
-      setViewDetails(item);
+      item = result.data;
     }
+    setViewDetails(item);
     setViewType(type);
+  };
+
+  const handleViewIDCard = async (member: any, type: 'alumni' | 'ambassador') => {
+    const result: any = await getUserDetails(member.id, type);
+    if (!result.success) {
+      setAdminMessage(`Error: ${result.error || 'Unable to load ID card.'}`);
+      return;
+    }
+    setShowIDCard(normalizeToCardProps(result.data, type));
   };
 
   const handleEditSubmit = async (e: React.FormEvent) => {
@@ -294,30 +551,24 @@ export default function AdminDashboard() {
     setTimeout(() => setGalleryMessage(''), 3000);
   };
 
-  const getFilteredData = (dataArray: any[] = []) => {
-    const safeArray = Array.isArray(dataArray) ? dataArray : [];
-    if (selectedBaseFilter === 'all') return safeArray;
-    return safeArray.filter(item => item && item.stateBaseCode === selectedBaseFilter);
-  };
+  const getFilteredData = (dataArray: any[] = []) => Array.isArray(dataArray) ? dataArray : [];
 
-  const getUniqueBases = () => {
+  const getUniqueBases = (): Array<{ code: string; name: string }> => {
     if (!data) return [];
-    const alumni = Array.isArray(data.alumni) ? data.alumni : [];
-    const ambassadors = Array.isArray(data.ambassadors) ? data.ambassadors : [];
-    const allMembers = [...alumni, ...ambassadors];
-    const bases = new Map();
-
-    allMembers.forEach(member => {
-      if (!member) return;
-      const code = member.stateBaseCode || 'LEGACY';
-      const name = member.stateBaseName || 'Legacy Records';
-      if (!bases.has(code)) {
-        bases.set(code, name);
-      }
-    });
-
-    return Array.from(bases.entries()).map(([code, name]) => ({ code, name }));
+    return Array.isArray(summary?.bases)
+      ? summary.bases.map((base: any) => ({ code: base.code, name: base.name }))
+      : [];
   };
+
+  const activePageResource = activeTab === 'alumni' || activeTab === 'ambassadors' || activeTab === 'messages'
+    ? activeTab
+    : activeTab === 'reunion' ? 'reunions'
+      : activeTab === 'support' || activeTab === 'payments' || activeTab === 'gallery' ? activeTab
+        : activeTab === 'broadcast' ? 'broadcasts'
+          : activeTab === 'profile-requests' ? 'profile-requests'
+            : null;
+  const activePagination = activePageResource ? listPagination[activePageResource] : null;
+  const activePage = activePageResource ? listPages[activePageResource] || 1 : 1;
 
   if (loading) {
     return (
@@ -330,32 +581,66 @@ export default function AdminDashboard() {
     );
   }
 
-  if (!data) {
+  const filteredAlumni = getFilteredData(data.alumni);
+  const filteredAmbassadors = getFilteredData(data.ambassadors);
+
+  if (!summary) {
     return (
       <div className="error-state">
         <div className="error-content">
-          <h2>❌ Failed to load data</h2>
-          <button onClick={fetchData} className="retry-button">Retry</button>
+          <h2>Unable to load admin overview</h2>
+          <button
+            onClick={async () => {
+              setLoading(true);
+              const result: any = await getAdminSummary();
+              if (result.success) setSummary(result.data);
+              else setAdminMessage(`Error: ${result.message || 'Unable to load admin summary.'}`);
+              setLoading(false);
+            }}
+            className="retry-button"
+          >
+            Retry
+          </button>
+          {adminMessage && <p role="alert">{adminMessage}</p>}
         </div>
       </div>
     );
   }
-
-  const filteredAlumni = getFilteredData(data.alumni);
-  const filteredAmbassadors = getFilteredData(data.ambassadors);
 
   return (
     <div className="admin-dashboard">
       <AdminNavbar
         activeTab={activeTab}
         setActiveTab={handleTabChange}
-        data={data}
         galleryImages={galleryImages}
         boardMembers={boardMembers}
         adminRole={adminRole}
+        summary={summary}
       />
 
       <div className="admin-content-wrapper">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', marginBottom: '16px', borderRadius: '8px', background: '#f8fafc' }}>
+          <label htmlFor="admin-feature-scope" style={{ fontWeight: 700 }}>Chapter features scope</label>
+          <select
+            id="admin-feature-scope"
+            value={adminRole === 'STATE_ADMIN' ? adminStateBase : featureScopeCode}
+            onChange={(event) => handleFeatureScopeChange(event.target.value)}
+            disabled={adminRole === 'STATE_ADMIN'}
+          >
+            {adminRole !== 'STATE_ADMIN' && <option value="ALL">All chapters</option>}
+            {STATE_BASE_OPTIONS.map(({ name, code }) => <option key={code} value={code}>{name}</option>)}
+          </select>
+          <span>{adminRole === 'STATE_ADMIN'
+            ? `Restricted to ${adminStateBaseName || adminStateBase}`
+            : featureScopeCode === 'ALL' && ['reunion-settings', 'payment-settings', 'gallery'].includes(activeTab)
+              ? 'Settings and new gallery uploads in this view target National (NAT); choose a chapter to target its data.'
+              : 'National administrators can manage chapter data separately.'}</span>
+        </div>
+        {adminRole === 'STATE_ADMIN' && (
+          <div style={{ padding: '12px 16px', marginBottom: '16px', borderRadius: '8px', background: '#eff6ff', color: '#1e40af', fontWeight: 600 }}>
+            State administrator scope: {adminStateBaseName || adminStateBase}
+          </div>
+        )}
         {galleryMessage && (
           <div style={{ padding: '15px', marginBottom: '20px', borderRadius: '8px', background: galleryMessage.includes('✅') ? '#d1fae5' : galleryMessage.includes('❌') ? '#fee2e2' : '#dbeafe', color: galleryMessage.includes('✅') ? '#065f46' : galleryMessage.includes('❌') ? '#991b1b' : '#1e40af', fontWeight: 600, textAlign: 'center' }}>
             {galleryMessage}
@@ -366,19 +651,21 @@ export default function AdminDashboard() {
           {/* Overview Tab */}
           {activeTab === 'overview' && (
             <div>
-              <h2 className="section-title">📊 National Overview Statistics</h2>
+              <h2 className="section-title">
+                📊 {adminRole === 'STATE_ADMIN' ? 'State' : 'National'} Overview Statistics
+              </h2>
               <div className="stats-grid">
-                <div className="stat-card purple"><span className="stat-icon">👥</span><span className="stat-number">{data.alumni.length}</span><span className="stat-label">Alumni Registered</span></div>
-                <div className="stat-card pink"><span className="stat-icon">🌟</span><span className="stat-number">{data.ambassadors.length}</span><span className="stat-label">Ambassadors</span></div>
-                <div className="stat-card cyan"><span className="stat-icon">🎫</span><span className="stat-number">{data.reunions.length}</span><span className="stat-label">Reunion Tickets</span></div>
-                <div className="stat-card green"><span className="stat-icon">✉️</span><span className="stat-number">{data.messages.length}</span><span className="stat-label">Contact Messages</span></div>
+                <div className="stat-card purple"><span className="stat-icon">👥</span><span className="stat-number">{summary.alumni}</span><span className="stat-label">Alumni Registered</span></div>
+                <div className="stat-card pink"><span className="stat-icon">🌟</span><span className="stat-number">{summary.ambassadors}</span><span className="stat-label">Ambassadors</span></div>
+                <div className="stat-card cyan"><span className="stat-icon">🎫</span><span className="stat-number">{summary.reunions}</span><span className="stat-label">Reunion Tickets</span></div>
+                <div className="stat-card green"><span className="stat-icon">✉️</span><span className="stat-number">{summary.messages}</span><span className="stat-label">Contact Messages</span></div>
               </div>
 
               <h3 style={{ marginTop: '40px', color: '#003366', marginBottom: '20px' }}>📍 Members by Base</h3>
               <DataTable
-                dataSource={getUniqueBases().map(base => {
-                  const alumniCount = data.alumni.filter((a: any) => a.stateBaseCode === base.code).length;
-                  const ambCount = data.ambassadors.filter((a: any) => a.stateBaseCode === base.code).length;
+                dataSource={summary.bases.map((base: any) => {
+                  const alumniCount = base.alumni;
+                  const ambCount = base.ambassadors;
                   return {
                     key: base.code,
                     name: base.name,
@@ -410,7 +697,12 @@ export default function AdminDashboard() {
                 <label style={{ fontWeight: 600, color: '#003366' }}>Filter by Base:</label>
                 <select
                   value={selectedBaseFilter}
-                  onChange={(e) => setSelectedBaseFilter(e.target.value)}
+                  onChange={(e) => {
+                    const code = e.target.value;
+                    setSelectedBaseFilter(code);
+                    setListPages((current) => ({ ...current, alumni: 1 }));
+                    void fetchData(code === 'all' ? undefined : code, 'alumni', true, 1);
+                  }}
                   style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid #d1d5db' }}
                 >
                   <option value="all">All Bases</option>
@@ -419,11 +711,11 @@ export default function AdminDashboard() {
                   ))}
                 </select>
                 <span style={{ color: '#666', fontSize: '0.9rem' }}>
-                  Showing {filteredAlumni.length} of {data.alumni.length} alumni
+                  Showing {filteredAlumni.length} of {listPagination.alumni?.total ?? filteredAlumni.length} alumni
                 </span>
               </div>
 
-              {filteredAlumni.length === 0 ? <p className="empty-state">No alumni found.</p> : (
+              {loadingResource === 'alumni' ? <p className="empty-state">Loading alumni records...</p> : filteredAlumni.length === 0 ? <p className="empty-state">No alumni found.</p> : (
                 <div className="data-table-container" style={{ overflowX: 'auto' }}>
                   <table className="data-table">
                     <thead>
@@ -472,11 +764,9 @@ export default function AdminDashboard() {
                           <td>
                             <div className="action-buttons">
                               <button onClick={() => handleViewDetails(alumni, 'alumni')} className="btn btn-view btn-small">👁️ View</button>
-                              {alumni.identityNumber && (
-                                <button onClick={() => setShowIDCard(normalizeToCardProps(alumni, 'alumni'))} className="btn btn-small" style={{ background: '#8b5cf6', color: 'white' }}>🎫 ID</button>
-                              )}
-                              {!alumni.isVerified && <button onClick={() => handleApprove(alumni._id, 'alumni')} className="btn btn-approve btn-small">✓ Approve</button>}
-                              <ConfirmAction message="Archive this alumni record?" description="This action will move the record to the archive." onConfirm={() => handleDelete(alumni._id, 'alumni')}>
+                              <button onClick={() => handleViewIDCard(alumni, 'alumni')} className="btn btn-small" style={{ background: '#8b5cf6', color: 'white' }}>🎫 ID</button>
+                              {!alumni.isVerified && <button onClick={() => handleApprove(alumni.id, 'alumni')} className="btn btn-approve btn-small">✓ Approve</button>}
+                              <ConfirmAction message="Archive this alumni record?" description="This action will move the record to the archive." onConfirm={() => handleDelete(alumni.id, 'alumni')}>
                                 <button className="btn btn-delete btn-small">🗑️</button>
                               </ConfirmAction>
                             </div>
@@ -499,7 +789,12 @@ export default function AdminDashboard() {
                 <label style={{ fontWeight: 600, color: '#003366' }}>Filter by Base:</label>
                 <select
                   value={selectedBaseFilter}
-                  onChange={(e) => setSelectedBaseFilter(e.target.value)}
+                  onChange={(e) => {
+                    const code = e.target.value;
+                    setSelectedBaseFilter(code);
+                    setListPages((current) => ({ ...current, ambassadors: 1 }));
+                    void fetchData(code === 'all' ? undefined : code, 'ambassadors', true, 1);
+                  }}
                   style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid #d1d5db' }}
                 >
                   <option value="all">All Bases</option>
@@ -508,11 +803,11 @@ export default function AdminDashboard() {
                   ))}
                 </select>
                 <span style={{ color: '#666', fontSize: '0.9rem' }}>
-                  Showing {filteredAmbassadors.length} of {data.ambassadors.length} ambassadors
+                  Showing {filteredAmbassadors.length} of {listPagination.ambassadors?.total ?? filteredAmbassadors.length} ambassadors
                 </span>
               </div>
 
-              {filteredAmbassadors.length === 0 ? <p className="empty-state">No ambassadors found.</p> : (
+              {loadingResource === 'ambassadors' ? <p className="empty-state">Loading ambassador records...</p> : filteredAmbassadors.length === 0 ? <p className="empty-state">No ambassadors found.</p> : (
                 <div className="data-table-container" style={{ overflowX: 'auto' }}>
                   <table className="data-table">
                     <thead>
@@ -557,11 +852,9 @@ export default function AdminDashboard() {
                           <td>
                             <div className="action-buttons">
                               <button onClick={() => handleViewDetails(amb, 'ambassador')} className="btn btn-view btn-small">👁️ View</button>
-                              {amb.identityNumber && (
-                                <button onClick={() => setShowIDCard(normalizeToCardProps(amb, 'ambassador'))} className="btn btn-small" style={{ background: '#8b5cf6', color: 'white' }}>🎫 ID</button>
-                              )}
-                              {!amb.isApproved && <button onClick={() => handleApprove(amb._id, 'ambassador')} className="btn btn-approve btn-small">✓ Approve</button>}
-                              <ConfirmAction message="Archive this ambassador record?" description="This action will move the record to the archive." onConfirm={() => handleDelete(amb._id, 'ambassador')}>
+                              <button onClick={() => handleViewIDCard(amb, 'ambassador')} className="btn btn-small" style={{ background: '#8b5cf6', color: 'white' }}>🎫 ID</button>
+                              {!amb.isApproved && <button onClick={() => handleApprove(amb.id, 'ambassador')} className="btn btn-approve btn-small">✓ Approve</button>}
+                              <ConfirmAction message="Archive this ambassador record?" description="This action will move the record to the archive." onConfirm={() => handleDelete(amb.id, 'ambassador')}>
                                 <button className="btn btn-delete btn-small">🗑️</button>
                               </ConfirmAction>
                             </div>
@@ -575,85 +868,9 @@ export default function AdminDashboard() {
             </div>
           )}
 
-          {/* Audit Logs Tab */}
-          {activeTab === 'audit-logs' && (
-            <div>
-              <h2 className="section-title">🔒 Audit Logs (Activity History)</h2>
-              <p style={{ color: '#666', marginBottom: '20px' }}>
-                Track all admin actions, logins, approvals, and deletions.
-              </p>
-
-              {auditLoading ? (
-                <div style={{ textAlign: 'center', padding: '40px' }}>
-                  <p>Loading audit logs...</p>
-                </div>
-              ) : auditLogs.length === 0 ? (
-                <p className="empty-state">No audit logs found.</p>
-              ) : (
-                <div className="data-table-container" style={{ overflowX: 'auto' }}>
-                  <table className="data-table">
-                    <thead>
-                      <tr>
-                        <th>Timestamp</th>
-                        <th>Admin Email</th>
-                        <th>Action</th>
-                        <th>Target Type</th>
-                        <th>Target ID</th>
-                        <th>IP Address</th>
-                        <th>Details</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {auditLogs.map((log: any, index: number) => (
-                        <tr key={log._id || log.id || `log-${index}`}>
-                          <td style={{ fontSize: '0.85rem' }}>
-                            {new Date(log.timestamp).toLocaleString('en-NG', {
-                              dateStyle: 'medium',
-                              timeStyle: 'short'
-                            })}
-                          </td>
-                          <td style={{ fontWeight: 600 }}>{log.adminEmail}</td>
-                          <td>
-                            <span style={{
-                              padding: '4px 8px',
-                              background: log.action === 'RATE_LIMIT_HIT' ? '#fee2e2' :
-                                log.action.includes('SUCCESS') || log.action.includes('APPROVE') || log.action.includes('CREATED') ? '#d1fae5' :
-                                  log.action.includes('FAILED') || log.action.includes('DELETE') ? '#fee2e2' : '#dbeafe',
-                              color: log.action === 'RATE_LIMIT_HIT' ? '#991b1b' :
-                                log.action.includes('SUCCESS') || log.action.includes('APPROVE') || log.action.includes('CREATED') ? '#065f46' :
-                                  log.action.includes('FAILED') || log.action.includes('DELETE') ? '#991b1b' : '#1e40af',
-                              borderRadius: '6px',
-                              fontSize: '0.8rem',
-                              fontWeight: 600
-                            }}>
-                              {log.action === 'RATE_LIMIT_HIT' ? '🚨 RATE LIMIT HIT' : log.action}
-                            </span>
-                          </td>
-                          <td>{log.targetType || '-'}</td>
-                          <td style={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>
-                            {log.targetId ? log.targetId.substring(0, 8) + '...' : '-'}
-                          </td>
-                          <td style={{ fontSize: '0.85rem' }}>{log.details?.ipAddress || '-'}</td>
-                          <td style={{ fontSize: '0.8rem', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                            {log.action === 'RATE_LIMIT_HIT' ? (
-                              <span style={{ color: '#991b1b', fontWeight: 600 }}>
-                                Blocked for {log.details?.retryAfterSeconds}s ({log.details?.type})
-                              </span>
-                            ) : (
-                              log.details ? JSON.stringify(log.details).substring(0, 50) : '-'
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          )}
 
           {/* Manage Admins Tab */}
-          {activeTab === 'manage-admins' && adminRole === 'super_admin' && (
+          {activeTab === 'manage-admins' && adminRole === 'SUPER_ADMIN' && (
             <div>
               <h2 className="section-title">👥 Manage Admins</h2>
 
@@ -709,7 +926,7 @@ export default function AdminDashboard() {
                   if (result.success) {
                     setAdminMessage(`✅ ${result.message}`);
                     setShowAdminForm(false);
-                    setAdminFormData({ fullName: '', email: '', password: '', role: 'state_admin', stateBase: '' });
+                    setAdminFormData({ fullName: '', email: '', password: '', role: 'STATE_ADMIN', stateBase: '' });
                     loadAdmins();
                   } else {
                     setAdminMessage(`❌ ${result.error}`);
@@ -771,12 +988,12 @@ export default function AdminDashboard() {
                         required
                         style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #d1d5db' }}
                       >
-                        <option value="state_admin">State Base Admin</option>
-                        <option value="national_admin">National Admin</option>
+                        <option value="STATE_ADMIN">State Base Admin</option>
+                        <option value="NATIONAL_ADMIN">National Admin</option>
                       </select>
                     </div>
 
-                    {adminFormData.role === 'state_admin' && (
+                    {adminFormData.role === 'STATE_ADMIN' && (
                       <div>
                         <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600 }}>State Base *</label>
                         <select
@@ -837,7 +1054,7 @@ export default function AdminDashboard() {
                             <span style={{
                               padding: '4px 12px',
                               borderRadius: '6px',
-                              background: admin.role === 'super_admin' ? '#f4b400' : admin.role === 'national_admin' ? '#003366' : '#10b981',
+                              background: admin.role === 'SUPER_ADMIN' ? '#f4b400' : admin.role === 'NATIONAL_ADMIN' ? '#003366' : '#10b981',
                               color: 'white',
                               fontSize: '0.85rem',
                               fontWeight: 600
@@ -883,7 +1100,7 @@ export default function AdminDashboard() {
           {activeTab === 'reunion' && (
             <div>
               <h2 className="section-title">🎫 Reunion Registrations</h2>
-              {data.reunions.length === 0 ? <p className="empty-state">No reunion registrations yet.</p> : (
+              {loadingResource === 'reunions' ? <p className="empty-state">Loading reunion registrations...</p> : data.reunions.length === 0 ? <p className="empty-state">No reunion registrations yet.</p> : (
                 <div className="data-table-container">
                   <table className="data-table">
                     <thead>
@@ -932,7 +1149,7 @@ export default function AdminDashboard() {
           {activeTab === 'messages' && (
             <div>
               <h2 className="section-title">✉️ Contact Messages</h2>
-              {data.messages.length === 0 ? <p className="empty-state">No messages yet.</p> : (
+              {loadingResource === 'messages' ? <p className="empty-state">Loading contact messages...</p> : data.messages.length === 0 ? <p className="empty-state">No messages yet.</p> : (
                 <div className="messages-grid">
                   {data.messages.map((msg: any, idx: number) => (
                     <div key={msg._id || msg.id || `msg-${idx}`} className="message-card">
@@ -988,8 +1205,13 @@ export default function AdminDashboard() {
 
                   if (result.success) {
                     setBroadcastMessage(`✅ ${result.message}`);
-                    setBroadcastForm({ subject: '', message: '', sentTo: 'all', targetBaseCode: '' });
-                    loadTabData('broadcast');
+                    setBroadcastForm({
+                      subject: '',
+                      message: '',
+                      sentTo: adminRole === 'STATE_ADMIN' ? 'base' : 'all',
+                      targetBaseCode: adminRole === 'STATE_ADMIN' ? adminStateBase : '',
+                    });
+                    void handleListPageChange('broadcasts', 1);
                   } else {
                     setBroadcastMessage('❌ Failed to send broadcast.');
                   }
@@ -1002,32 +1224,39 @@ export default function AdminDashboard() {
                     <select
                       value={broadcastForm.sentTo}
                       onChange={(e) => setBroadcastForm({ ...broadcastForm, sentTo: e.target.value, targetBaseCode: '' })}
+                      disabled={adminRole === 'STATE_ADMIN'}
                       style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #d1d5db' }}
                       required
                     >
-                      <option value="all">All Members (All Bases)</option>
-                      <option value="alumni">All Alumni (All Bases)</option>
-                      <option value="ambassadors">All Ambassadors (All Bases)</option>
-                      <option value="reunion">Reunion Registrants Only</option>
-                      <option value="base">📍 Specific State Base</option>
+                      {adminRole === 'STATE_ADMIN' ? (
+                        <option value="base">📍 {adminStateBaseName || adminStateBase}</option>
+                      ) : (
+                        <>
+                          <option value="all">All Members (All Bases)</option>
+                          <option value="base">📍 Specific State Base</option>
+                        </>
+                      )}
                     </select>
                   </div>
 
                   {broadcastForm.sentTo === 'base' && (
                     <div style={{ marginBottom: '20px', padding: '15px', background: '#e0f2fe', borderRadius: '8px', borderLeft: '4px solid #003366' }}>
                       <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600, color: '#003366' }}>Select State Base:</label>
-                      <select
-                        value={broadcastForm.targetBaseCode}
-                        onChange={(e) => setBroadcastForm({ ...broadcastForm, targetBaseCode: e.target.value })}
-                        style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #003366' }}
-                        required
-                      >
-                        <option value="">-- Select a Base --</option>
-                        <option value="NAT">National Base (All States)</option>
-                        {getUniqueBases().map(base => (
-                          <option key={base.code} value={base.code}>{base.name} ({base.code})</option>
-                        ))}
-                      </select>
+                      {adminRole === 'STATE_ADMIN' ? (
+                        <input type="text" value={adminStateBaseName || adminStateBase} readOnly style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #003366', background: '#f3f4f6' }} />
+                      ) : (
+                        <select
+                          value={broadcastForm.targetBaseCode}
+                          onChange={(e) => setBroadcastForm({ ...broadcastForm, targetBaseCode: e.target.value })}
+                          style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #003366' }}
+                          required
+                        >
+                          <option value="">-- Select a Base --</option>
+                          {getUniqueBases().filter(base => base.code !== 'LEGACY' && base.code !== 'NAT').map(base => (
+                            <option key={base.code} value={base.code}>{base.name} ({base.code})</option>
+                          ))}
+                        </select>
+                      )}
                       <p style={{ fontSize: '0.85rem', color: '#666', marginTop: '8px' }}>
                         This will send only to alumni and ambassadors registered under this specific base.
                       </p>
@@ -1063,7 +1292,7 @@ export default function AdminDashboard() {
               </div>
 
               <h3 style={{ marginBottom: '20px', color: '#003366' }}>📨 Broadcast History</h3>
-              {broadcasts.length === 0 ? <p className="empty-state">No broadcasts sent yet.</p> : (
+              {broadcastListLoading ? <p className="empty-state">Loading broadcasts...</p> : broadcasts.length === 0 ? <p className="empty-state">No broadcasts sent yet.</p> : (
                 <div className="messages-grid">
                   {broadcasts.map((broadcast: any, idx: number) => (
                     <div key={broadcast._id || broadcast.id || `broadcast-${idx}`} className="message-card">
@@ -1105,6 +1334,7 @@ export default function AdminDashboard() {
                   formData.append('description', galleryForm.description);
                   formData.append('category', galleryForm.category);
                   formData.append('image', imageFile);
+                  formData.append('stateBaseCode', featureScopeCode === 'ALL' ? 'NAT' : featureScopeCode);
                   formData.append('uploadedBy', 'Admin');
 
                   const result = await uploadGalleryImage(formData);
@@ -1117,7 +1347,7 @@ export default function AdminDashboard() {
                     if (fileInputRef.current) fileInputRef.current.value = '';
                     loadTabData('gallery');
                   } else {
-                    setGalleryMessage('❌ Failed to upload image.');
+                    setGalleryMessage(`❌ ${result.error || result.message || 'Failed to upload image.'}`);
                   }
 
                   setGalleryLoading(false);
@@ -1139,9 +1369,15 @@ export default function AdminDashboard() {
                   </div>
                   <div style={{ marginBottom: '20px' }}>
                     <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600 }}>Upload Image:</label>
-                    <input type="file" ref={fileInputRef} accept="image/*" onChange={(e) => {
+                    <input type="file" ref={fileInputRef} accept="image/jpeg,image/png,image/webp,image/gif" onChange={(e) => {
                       const file = e.target.files?.[0];
                       if (file) {
+                        const error = getUploadError(file, MEMBER_IMAGE_TYPES, 6 * 1024 * 1024, 'Gallery image');
+                        if (error) {
+                          setGalleryMessage(`❌ ${error}`);
+                          e.target.value = '';
+                          return;
+                        }
                         const reader = new FileReader();
                         reader.onloadend = () => {
                           setImagePreview(reader.result as string);
@@ -1188,7 +1424,7 @@ export default function AdminDashboard() {
                             onConfirm={async () => {
                               setGalleryMessage('Deleting...');
                               const adminEmail = 'admin@npae.gov.ng';
-                              const result = await deleteRecord(img._id, 'gallery', adminEmail);
+                              const result = await deleteGalleryImage(img.id || img._id);
                               if (result.success) {
                                 setGalleryMessage('✅ Image deleted successfully!');
                                 loadTabData('gallery');
@@ -1220,10 +1456,13 @@ export default function AdminDashboard() {
                 </div>
               )}
 
-              <div style={{ padding: '30px', background: '#f8f9fc', borderRadius: '12px', marginBottom: '40px' }}>
+              <div ref={leadershipFormRef} style={{ padding: '30px', background: '#f8f9fc', borderRadius: '12px', marginBottom: '40px' }}>
                 <h3 style={{ marginBottom: '20px', color: '#003366' }}>{editingMember ? '✏️ Edit Member' : '➕ Add New Board Member'}</h3>
                 <form onSubmit={async (e) => {
                   e.preventDefault();
+                  if (leadershipSavingRef.current) return;
+                  leadershipSavingRef.current = true;
+                  setLeadershipSaving(true);
                   const formData = new FormData();
                   if (editingMember) formData.append('id', editingMember.id || editingMember._id);
                   formData.append('name', leadershipForm.name);
@@ -1234,16 +1473,21 @@ export default function AdminDashboard() {
                   formData.append('linkedin', leadershipForm.linkedin);
                   formData.append('twitter', leadershipForm.twitter);
 
-                  const result = await saveBoardMember(formData);
-                  if (result.success) {
-                    setLeadershipMessage('✅ Member saved successfully!');
-                    setLeadershipForm({ name: '', role: '', bio: '', photoUrl: '', isFeatured: false, linkedin: '', twitter: '' });
-                    setEditingMember(null);
-                    loadTabData('leadership');
-                  } else {
-                    setLeadershipMessage('❌ Failed to save member.');
+                  try {
+                    const result = await saveBoardMember(formData);
+                    if (result.success) {
+                      setLeadershipMessage('✅ Member saved successfully!');
+                      setLeadershipForm({ name: '', role: '', bio: '', photoUrl: '', isFeatured: false, linkedin: '', twitter: '' });
+                      setEditingMember(null);
+                      loadTabData('leadership');
+                    } else {
+                      setLeadershipMessage(`❌ ${result.error || result.message || 'Failed to save member.'}`);
+                    }
+                    setTimeout(() => setLeadershipMessage(''), 3000);
+                  } finally {
+                    leadershipSavingRef.current = false;
+                    setLeadershipSaving(false);
                   }
-                  setTimeout(() => setLeadershipMessage(''), 3000);
                 }}>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '15px', marginBottom: '15px' }}>
                     <input type="text" placeholder="Full Name" value={leadershipForm.name} onChange={(e) => setLeadershipForm({ ...leadershipForm, name: e.target.value })} style={{ padding: '12px', borderRadius: '8px', border: '1px solid #d1d5db' }} required />
@@ -1295,7 +1539,9 @@ export default function AdminDashboard() {
 
                   <div style={{ display: 'flex', gap: '10px' }}>
                     {editingMember && <button type="button" onClick={() => { setEditingMember(null); setLeadershipForm({ name: '', role: '', bio: '', photoUrl: '', isFeatured: false, linkedin: '', twitter: '' }); }} className="btn btn-delete">Cancel</button>}
-                    <button type="submit" className="btn btn-approve">{editingMember ? '💾 Update Member' : '➕ Add Member'}</button>
+                    <button type="submit" disabled={leadershipSaving} className="btn btn-approve">
+                      {leadershipSaving ? 'Saving...' : editingMember ? '💾 Update Member' : '➕ Add Member'}
+                    </button>
                   </div>
                 </form>
               </div>
@@ -1311,7 +1557,7 @@ export default function AdminDashboard() {
                       <p style={{ margin: '0 0 10px 0', color: '#f4b400', fontWeight: 600, fontSize: '0.9rem' }}>{member.role}</p>
                       <p style={{ margin: '0 0 15px 0', color: '#6b7280', fontSize: '0.85rem', lineHeight: 1.5 }}>{member.bio.substring(0, 80)}...</p>
                       <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
-                        <button onClick={() => { setEditingMember(member); setLeadershipForm({ name: member.name, role: member.role, bio: member.bio, photoUrl: member.photoUrl, isFeatured: member.isFeatured, linkedin: member.linkedin || '', twitter: member.twitter || '' }); }} className="btn btn-approve btn-small" style={{ flex: 1 }}>✏️ Edit</button>
+                        <button type="button" onClick={() => handleEditBoardMember(member)} className="btn btn-approve btn-small" style={{ flex: 1 }}>✏️ Edit</button>
                         <button
                           onClick={() => setShowBoardMemberIDCard(member)}
                           className="btn btn-small"
@@ -1326,7 +1572,7 @@ export default function AdminDashboard() {
                         position="top"
                         onConfirm={async () => {
                           const adminEmail = 'admin@npae.gov.ng';
-                          const res = await deleteRecord(member.id || member._id, 'board', adminEmail);
+                          const res = await deleteBoardMember(member.id || member._id);
                           if (res.success) loadTabData('leadership');
                         }}
                       >
@@ -1353,7 +1599,7 @@ export default function AdminDashboard() {
               <form onSubmit={async (e) => {
                 e.preventDefault();
                 setReunionSettingsLoading(true);
-                const result = await updateReunionSettings(reunionSettings);
+                const result = await updateReunionSettings(reunionSettings, featureScopeCode === 'ALL' ? 'NAT' : featureScopeCode);
                 if (result.success) {
                   setReunionSettingsMessage('✅ Reunion settings updated successfully!');
                 } else {
@@ -1741,7 +1987,7 @@ export default function AdminDashboard() {
                       setPaymentSettingsLoading(true);
                       setPaymentSettingsMessage('');
 
-                      const result: any = await updatePaymentSettings(paymentSettings.purposes);
+                      const result: any = await updatePaymentSettings(paymentSettings.purposes, featureScopeCode === 'ALL' ? 'NAT' : featureScopeCode);
 
                       if (result.success) {
                         setPaymentSettingsMessage('✅ Payment settings updated successfully!');
@@ -1768,6 +2014,145 @@ export default function AdminDashboard() {
                   </button>
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* Audit Logs Tab */}
+          {activeTab === 'audit-logs' && (
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
+                <div>
+                  <h2 className="section-title" style={{ margin: 0 }}>📜 System Audit Logs</h2>
+                  <p style={{ color: '#6b7280', margin: '4px 0 0 0', fontSize: '0.9rem' }}>
+                    Real-time activity log of all admin operations, approvals, and system events.
+                  </p>
+                </div>
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                  <input
+                    type="text"
+                    placeholder="Search logs (email, action)..."
+                    value={auditSearch}
+                    onChange={(e) => setAuditSearch(e.target.value)}
+                    style={{ padding: '7px 12px', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '0.88rem', minWidth: '220px' }}
+                  />
+                  <button onClick={() => loadTabData('audit-logs')} className="btn btn-small" style={{ background: '#003366', color: 'white', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    ↻ Refresh Logs
+                  </button>
+                </div>
+              </div>
+
+              {auditError && (
+                <div style={{ padding: '14px', marginBottom: '20px', borderRadius: '8px', background: '#fee2e2', color: '#991b1b', border: '1px solid #fca5a5', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span>⚠️ {auditError}</span>
+                  <button onClick={() => loadTabData('audit-logs')} className="btn btn-small" style={{ background: '#991b1b', color: 'white' }}>
+                    ↻ Retry
+                  </button>
+                </div>
+              )}
+
+              {auditLoading ? (
+                <div style={{ textAlign: 'center', padding: '50px' }}>
+                  <div style={{ fontSize: '1.5rem', marginBottom: '10px' }}>⏳</div>
+                  <p style={{ color: '#6b7280' }}>Loading audit logs...</p>
+                </div>
+              ) : auditLogs.length === 0 ? (
+                <div className="empty-state" style={{ textAlign: 'center', padding: '40px', background: '#f9fafb', borderRadius: '8px' }}>
+                  <p style={{ fontSize: '1.1rem', color: '#4b5563', margin: 0 }}>No audit logs recorded yet.</p>
+                  <small style={{ color: '#9ca3af' }}>Audit logs will record here when administrative actions are performed.</small>
+                </div>
+              ) : (
+                (() => {
+                  const filteredLogs = auditLogs.filter((log: any) => {
+                    if (!auditSearch.trim()) return true;
+                    const q = auditSearch.toLowerCase();
+                    const action = (log.action || '').toLowerCase();
+                    const email = (log.actorEmail || log.adminEmail || log.performedBy || '').toLowerCase();
+                    const details = typeof log.details === 'object' ? JSON.stringify(log.details).toLowerCase() : String(log.details || '').toLowerCase();
+                    return action.includes(q) || email.includes(q) || details.includes(q);
+                  });
+
+                  return (
+                    <div>
+                      <div style={{ marginBottom: '10px', fontSize: '0.85rem', color: '#6b7280' }}>
+                        Showing {filteredLogs.length} of {auditLogs.length} logged events
+                      </div>
+                      <div className="data-table-container" style={{ overflowX: 'auto', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
+                        <table className="data-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
+                          <thead>
+                            <tr style={{ background: '#f8fafc', borderBottom: '2px solid #e2e8f0', textAlign: 'left' }}>
+                              <th style={{ padding: '12px 14px' }}>Timestamp</th>
+                              <th style={{ padding: '12px 14px' }}>Action</th>
+                              <th style={{ padding: '12px 14px' }}>Actor</th>
+                              <th style={{ padding: '12px 14px' }}>Event Details</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {filteredLogs.map((log: any, index: number) => {
+                              const actionStr = String(log.action || 'SYSTEM_ACTION').toUpperCase();
+                              const isGreen = actionStr.includes('APPROVE') || actionStr.includes('CREATE') || actionStr.includes('SUCCESS') || actionStr.includes('BOOT');
+                              const isRed = actionStr.includes('DELETE') || actionStr.includes('FAIL') || actionStr.includes('REJECT');
+                              const isBlue = actionStr.includes('LOGIN') || actionStr.includes('UPDATE') || actionStr.includes('BROADCAST');
+                              const badgeBg = isGreen ? '#dcfce7' : isRed ? '#fee2e2' : isBlue ? '#e0f2fe' : '#f3f4f6';
+                              const badgeColor = isGreen ? '#15803d' : isRed ? '#b91c1c' : isBlue ? '#0369a1' : '#374151';
+
+                              const timestamp = log.createdAt || log.timestamp;
+                              const formattedDate = timestamp
+                                ? new Date(timestamp).toLocaleString('en-NG', { dateStyle: 'medium', timeStyle: 'short' })
+                                : 'Just now';
+
+                              const actor = log.actorEmail || log.adminEmail || log.performedBy || log.userEmail || 'System';
+
+                              return (
+                                <tr key={log._id || log.id || `audit-${index}`} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                                  <td style={{ padding: '12px 14px', whiteSpace: 'nowrap', fontSize: '0.85rem', color: '#4b5563' }}>
+                                    {formattedDate}
+                                  </td>
+                                  <td style={{ padding: '12px 14px', whiteSpace: 'nowrap' }}>
+                                    <span style={{
+                                      padding: '4px 10px',
+                                      borderRadius: '6px',
+                                      fontSize: '0.78rem',
+                                      fontWeight: 700,
+                                      letterSpacing: '0.5px',
+                                      background: badgeBg,
+                                      color: badgeColor,
+                                      display: 'inline-block'
+                                    }}>
+                                      {actionStr}
+                                    </span>
+                                  </td>
+                                  <td style={{ padding: '12px 14px', fontFamily: 'monospace', fontSize: '0.85rem', color: '#1e293b' }}>
+                                    <strong>{actor}</strong>
+                                  </td>
+                                  <td style={{ padding: '12px 14px', fontSize: '0.85rem' }}>
+                                    {log.details && typeof log.details === 'object' ? (
+                                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center' }}>
+                                        {Object.entries(log.details).map(([key, val]) => (
+                                          <span key={key} style={{
+                                            padding: '2px 8px',
+                                            borderRadius: '4px',
+                                            background: '#f1f5f9',
+                                            fontSize: '0.78rem',
+                                            color: '#334155'
+                                          }}>
+                                            <strong style={{ color: '#003366' }}>{key}:</strong> {typeof val === 'object' ? JSON.stringify(val) : String(val)}
+                                          </span>
+                                        ))}
+                                      </div>
+                                    ) : (
+                                      <span style={{ color: '#6b7280' }}>{log.details ? String(log.details) : '—'}</span>
+                                    )}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  );
+                })()
+              )}
             </div>
           )}
         </div>
@@ -1799,7 +2184,7 @@ export default function AdminDashboard() {
           ) : (
             <div style={{ display: 'grid', gap: '20px' }}>
               {profileRequests.map((req) => (
-                <div key={req._id} style={{ background: 'white', padding: '20px', borderRadius: '12px', boxShadow: '0 4px 6px rgba(0,0,0,0.05)', border: '1px solid #e5e7eb' }}>
+                <div key={req.id || req._id} style={{ background: 'white', padding: '20px', borderRadius: '12px', boxShadow: '0 4px 6px rgba(0,0,0,0.05)', border: '1px solid #e5e7eb' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '15px', borderBottom: '1px solid #f3f4f6', paddingBottom: '15px' }}>
                     <div>
                       <h3 style={{ margin: '0 0 5px 0', color: '#1f2937' }}>{req.userName}</h3>
@@ -1829,7 +2214,7 @@ export default function AdminDashboard() {
                     <ConfirmAction
                       message="Reject profile changes?"
                       description="The user's profile will remain unchanged."
-                      onConfirm={() => handleProcessProfileRequest(req._id, 'reject')}
+                      onConfirm={() => handleProcessProfileRequest(req.id || req._id, 'reject')}
                     >
                       <button className="btn btn-delete">❌ Reject</button>
                     </ConfirmAction>
@@ -1837,7 +2222,7 @@ export default function AdminDashboard() {
                     <ConfirmAction
                       message="Approve profile changes?"
                       description="These changes will be permanently applied to the user's profile."
-                      onConfirm={() => handleProcessProfileRequest(req._id, 'approve')}
+                      onConfirm={() => handleProcessProfileRequest(req.id || req._id, 'approve')}
                     >
                       <button className="btn btn-approve">✅ Approve Changes</button>
                     </ConfirmAction>
@@ -1846,6 +2231,30 @@ export default function AdminDashboard() {
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {activePageResource && activePagination?.totalPages > 1 && (
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '12px', padding: '20px' }}>
+          <button
+            type="button"
+            className="btn btn-outline"
+            disabled={activePage <= 1 || loadingResource !== null || supportLoading || profileRequestsLoading || broadcastListLoading}
+            onClick={() => void handleListPageChange(activePageResource, activePage - 1)}
+          >
+            Previous
+          </button>
+          <span>
+            Page {activePage} of {activePagination.totalPages} · {activePagination.total} records
+          </span>
+          <button
+            type="button"
+            className="btn btn-outline"
+            disabled={activePage >= activePagination.totalPages || loadingResource !== null || supportLoading || profileRequestsLoading || broadcastListLoading}
+            onClick={() => void handleListPageChange(activePageResource, activePage + 1)}
+          >
+            Next
+          </button>
         </div>
       )}
 
@@ -1932,7 +2341,7 @@ export default function AdminDashboard() {
 
                 <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
                   {!viewDetails.isVerified && (
-                    <button onClick={() => { handleApprove(viewDetails._id, 'alumni'); setViewDetails(null); }} className="btn btn-approve" style={{ flex: 1, padding: '12px' }}>✓ Approve &amp; Verify</button>
+                    <button onClick={() => { handleApprove(viewDetails.id, 'alumni'); setViewDetails(null); }} className="btn btn-approve" style={{ flex: 1, padding: '12px' }}>✓ Approve &amp; Verify</button>
                   )}
                   {viewDetails.identityNumber && (
                     <button onClick={() => { setShowIDCard(normalizeToCardProps(viewDetails, 'alumni')); setViewDetails(null); }} className="btn" style={{ flex: 1, padding: '12px', background: '#8b5cf6', color: 'white' }}>🎫 View ID Card</button>
@@ -2018,11 +2427,79 @@ export default function AdminDashboard() {
 
                 <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
                   {!viewDetails.isApproved && (
-                    <button onClick={() => { handleApprove(viewDetails._id, 'ambassador'); setViewDetails(null); }} className="btn btn-approve" style={{ flex: 1, padding: '12px' }}>✓ Approve Ambassador</button>
+                    <button onClick={() => { handleApprove(viewDetails.id, 'ambassador'); setViewDetails(null); }} className="btn btn-approve" style={{ flex: 1, padding: '12px' }}>✓ Approve Ambassador</button>
                   )}
                   {viewDetails.identityNumber && (
                     <button onClick={() => { setShowIDCard(normalizeToCardProps(viewDetails, 'ambassador')); setViewDetails(null); }} className="btn" style={{ flex: 1, padding: '12px', background: '#8b5cf6', color: 'white' }}>🎫 View ID Card</button>
                   )}
+                  <button onClick={() => setViewDetails(null)} className="btn btn-delete" style={{ flex: 1, padding: '12px' }}>Close</button>
+                </div>
+              </div>
+            )}
+
+            {viewType === 'reunion' && viewDetails && (
+              <div>
+                <h2 style={{ color: '#003366', marginBottom: '20px', borderBottom: '2px solid #f4b400', paddingBottom: '10px' }}>🎫 Reunion Registration Details</h2>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  <DetailViewer
+                    title="📋 Registration Information"
+                    items={[
+                      { label: 'Full Name', value: viewDetails.fullName || '—' },
+                      { label: 'Email', value: viewDetails.email || '—', mono: true },
+                      { label: 'Phone', value: viewDetails.phone || '—' },
+                      { label: 'School', value: viewDetails.school || '—' },
+                      { label: 'Graduation Year', value: viewDetails.graduationYear ?? '—' },
+                      { label: 'Attendance Type', value: viewDetails.attendanceType || '—' },
+                      {
+                        label: 'Payment Status',
+                        value: (
+                          <span
+                            style={{
+                              display: 'inline-block',
+                              padding: '4px 10px',
+                              borderRadius: '20px',
+                              fontSize: '0.8rem',
+                              fontWeight: 'bold',
+                              background: viewDetails.paymentStatus === 'paid' ? '#d1fae5' : viewDetails.paymentStatus === 'failed' ? '#fee2e2' : '#fef3c7',
+                              color: viewDetails.paymentStatus === 'paid' ? '#065f46' : viewDetails.paymentStatus === 'failed' ? '#991b1b' : '#92400e',
+                            }}
+                          >
+                            {viewDetails.paymentStatus === 'paid' ? 'Paid' : viewDetails.paymentStatus === 'failed' ? 'Failed' : 'Pending'}
+                          </span>
+                        )
+                      },
+                      { label: 'Amount Paid', value: viewDetails.amountPaid != null ? `₦${Number(viewDetails.amountPaid).toLocaleString('en-NG')}` : '—' },
+                      { label: 'Payment Reference', value: viewDetails.paymentReference || '—', mono: true, hidden: !viewDetails.paymentReference },
+                      { label: 'Registered', value: viewDetails.createdAt ? new Date(viewDetails.createdAt).toLocaleString('en-NG', { dateStyle: 'medium', timeStyle: 'short' }) : '—' },
+                    ]}
+                  />
+                </div>
+
+                <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
+                  <button onClick={() => setViewDetails(null)} className="btn btn-delete" style={{ flex: 1, padding: '12px' }}>Close</button>
+                </div>
+              </div>
+            )}
+
+            {viewType === 'message' && viewDetails && (
+              <div>
+                <h2 style={{ color: '#003366', marginBottom: '20px', borderBottom: '2px solid #f4b400', paddingBottom: '10px' }}>✉️ Contact Message Details</h2>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  <DetailViewer
+                    title="📤 Message Information"
+                    items={[
+                      { label: 'Name', value: viewDetails.name || '—' },
+                      { label: 'Email', value: viewDetails.email || '—', mono: true },
+                      { label: 'Subject', value: viewDetails.subject || '—' },
+                      { label: 'Received', value: viewDetails.createdAt ? new Date(viewDetails.createdAt).toLocaleString('en-NG', { dateStyle: 'medium', timeStyle: 'short' }) : '—' },
+                      { label: 'Message', value: viewDetails.message || '—', span: 2 },
+                    ]}
+                  />
+                </div>
+
+                <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
                   <button onClick={() => setViewDetails(null)} className="btn btn-delete" style={{ flex: 1, padding: '12px' }}>Close</button>
                 </div>
               </div>

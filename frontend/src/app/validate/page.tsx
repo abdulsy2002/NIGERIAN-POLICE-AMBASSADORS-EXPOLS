@@ -30,20 +30,18 @@ export default function ValidatePage() {
     return () => clearInterval(timer);
   }, []);
 
-  const handleValidate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (searchQuery.trim() === '') {
-      setResult({ type: 'error', message: '⚠️ Please enter an Email, Admission Number, or Phone Number.' });
+  const executeValidation = async (queryToValidate: string) => {
+    if (!queryToValidate || queryToValidate.trim() === '') {
+      setResult({ type: 'error', message: '⚠️ Please enter an Identity Number, Email, Admission Number, or Phone.' });
       return;
     }
 
     setLoading(true);
     setResult({ type: null, message: '' });
 
-    const validationResult = await validateMember(searchQuery.trim());
+    const validationResult = await validateMember(queryToValidate.trim());
 
-    if (validationResult.success && validationResult.data) {
+    if (validationResult && validationResult.success && validationResult.data) {
       const memberType = validationResult.memberType === 'alumni' || validationResult.memberType === 'ambassador'
         ? validationResult.memberType
         : undefined;
@@ -59,11 +57,27 @@ export default function ValidatePage() {
         data: validationResult.data
       });
     } else {
-      setResult({ type: 'error', message: validationResult.message || 'An error occurred while validating the member.' });
+      setResult({ type: 'error', message: validationResult?.message || 'No registered member found matching this query.' });
     }
 
     setLoading(false);
   };
+
+  const handleValidate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await executeValidation(searchQuery);
+  };
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const paramId = params.get('id') || params.get('query');
+      if (paramId) {
+        setSearchQuery(paramId);
+        executeValidation(paramId);
+      }
+    }
+  }, []);
 
   return (
     <>
@@ -142,6 +156,8 @@ export default function ValidatePage() {
                     {result.memberType === 'alumni' && (
                       <>
                         <div className="detail-item"><strong>Full Name:</strong> {result.data.fullName}</div>
+                        <div className="detail-item"><strong>Identity Number:</strong> <span style={{ color: '#003366', fontWeight: 700 }}>{result.data.identityNumber}</span></div>
+                        <div className="detail-item"><strong>State Chapter:</strong> <span style={{ color: '#CC0000', fontWeight: 700 }}>{result.data.chapter}</span></div>
                         <div className="detail-item"><strong>Admission Number:</strong> {result.data.admissionNumber}</div>
                         <div className="detail-item"><strong>School Attended:</strong> {result.data.schoolAttended}</div>
                         <div className="detail-item"><strong>Graduation Year:</strong> {result.data.graduationYear}</div>
@@ -162,6 +178,8 @@ export default function ValidatePage() {
                     {result.memberType === 'ambassador' && (
                       <>
                         <div className="detail-item"><strong>Full Name:</strong> {result.data.fullName}</div>
+                        <div className="detail-item"><strong>Identity Number:</strong> <span style={{ color: '#003366', fontWeight: 700 }}>{result.data.identityNumber}</span></div>
+                        <div className="detail-item"><strong>State Chapter:</strong> <span style={{ color: '#CC0000', fontWeight: 700 }}>{result.data.chapter}</span></div>
                         <div className="detail-item"><strong>Profession:</strong> {result.data.profession}</div>
                         {result.data.organization && <div className="detail-item"><strong>Organization:</strong> {result.data.organization}</div>}
                         <div className="detail-item"><strong>Ambassador Type:</strong> {result.data.ambassadorType}</div>

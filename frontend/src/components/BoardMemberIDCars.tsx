@@ -38,9 +38,8 @@ export default function BoardMemberIDCard({
   const handleDownloadPDF = async () => {
     if (!cardRef.current) return;
     const canvas = await html2canvas(cardRef.current, {
-      scale: 3,
       useCORS: true,
-      backgroundColor: '#ffffff',
+      background: '#ffffff',
     });
     const imgData = canvas.toDataURL('image/png');
     const pdf = new jsPDF({

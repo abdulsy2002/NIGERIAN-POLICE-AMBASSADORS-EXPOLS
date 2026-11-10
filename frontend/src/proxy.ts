@@ -18,6 +18,7 @@ const publicRoutes = [
   '/privacy-policy',
   '/admin/login',
   '/admin/setup',
+  '/api/check-auth',
   '/leadership',
 ];
 
@@ -64,7 +65,7 @@ export function proxy(request: NextRequest) {
       // Decode JWT token instead of raw JSON
       const sessionData = decodeJwt(adminSession.value);
       
-      if (!sessionData || !sessionData.userId || !sessionData.role) {
+      if (!sessionData || !sessionData.sub || !sessionData.role) {
         return NextResponse.redirect(new URL('/admin/login', request.url));
       }
 

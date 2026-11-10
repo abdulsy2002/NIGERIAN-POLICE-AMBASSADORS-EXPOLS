@@ -18,7 +18,7 @@ export default function ConditionalLayout({ children }: { children: React.ReactN
 
   return (
     <>
-      <Navbar isLoggedIn={false} />
+      <Navbar />
       <main className="flex-grow">{children}</main>
       <Footer />
     </>

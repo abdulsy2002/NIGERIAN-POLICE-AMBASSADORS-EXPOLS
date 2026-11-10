@@ -68,6 +68,9 @@ export default function Home() {
 
   // CTA typing effect (Scroll triggered)
   useEffect(() => {
+    // Hoist timerId outside the observer so cleanup can cancel it
+    let timerId: ReturnType<typeof setTimeout>;
+
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries[0].isIntersecting && !ctaStarted.current) {
@@ -85,50 +88,46 @@ export default function Home() {
             "Register today and stay updated on reunions, opportunities, and community activities."
           ];
 
-          let textIndex = 0;
-          let charIndex = 0;
-          let isDeleting = false;
-          let timeoutId: ReturnType<typeof setTimeout>;
+          const state = { textIndex: 0, charIndex: 0, isDeleting: false };
 
           const typeCTAEffect = () => {
-            const currentTitle = ctaTitles[textIndex];
-            const currentParagraph = ctaParagraphs[textIndex];
+            const currentTitle = ctaTitles[state.textIndex];
+            const currentParagraph = ctaParagraphs[state.textIndex];
 
-            if (!isDeleting) {
-              setCtaTitle(currentTitle.substring(0, charIndex + 1));
-              charIndex++;
+            if (!state.isDeleting) {
+              state.charIndex++;
+              setCtaTitle(currentTitle.substring(0, state.charIndex));
 
-              if (charIndex === currentTitle.length) {
+              if (state.charIndex === currentTitle.length) {
                 setCtaParagraph(currentParagraph);
-                isDeleting = true;
-                timeoutId = setTimeout(typeCTAEffect, 2000);
+                state.isDeleting = true;
+                timerId = setTimeout(typeCTAEffect, 2000);
                 return;
               }
             } else {
-              setCtaTitle(currentTitle.substring(0, charIndex - 1));
-              charIndex--;
+              state.charIndex--;
+              setCtaTitle(currentTitle.substring(0, state.charIndex));
 
-              if (charIndex === 0) {
-                isDeleting = false;
-                textIndex++;
-                if (textIndex >= ctaTitles.length) {
-                  textIndex = 0;
-                }
+              if (state.charIndex === 0) {
+                state.isDeleting = false;
+                state.textIndex = (state.textIndex + 1) % ctaTitles.length;
               }
             }
 
-            timeoutId = setTimeout(typeCTAEffect, isDeleting ? 50 : 100);
+            timerId = setTimeout(typeCTAEffect, state.isDeleting ? 50 : 100);
           };
 
-          timeoutId = setTimeout(typeCTAEffect, 100);
+          timerId = setTimeout(typeCTAEffect, 100);
         }
       },
-      { threshold: 0.3 } 
+      { threshold: 0.3 }
     );
 
     if (ctaRef.current) observer.observe(ctaRef.current);
-    return () => observer.disconnect();
+    // Cleanup: stop both the observer AND any pending timer
+    return () => { observer.disconnect(); clearTimeout(timerId); };
   }, []);
+
 
   // Scroll to top button
   useEffect(() => {

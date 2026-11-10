@@ -5,11 +5,9 @@ import Navbar from "./Navbar";
 import Footer from "./Footer";
 
 export default function LayoutWrapper({ 
-  children, 
-  isLoggedIn 
+  children,
 }: { 
   children: React.ReactNode; 
-  isLoggedIn: boolean;
 }) {
   const pathname = usePathname();
 
@@ -24,7 +22,7 @@ export default function LayoutWrapper({
   return (
     <>
       {/* Conditionally render Navbar */}
-      {!shouldHideNavbar && <Navbar isLoggedIn={isLoggedIn} />}
+      {!shouldHideNavbar && <Navbar />}
       
       <main>{children}</main>
       

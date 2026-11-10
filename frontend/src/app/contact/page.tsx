@@ -4,9 +4,23 @@ import './contact.css';
 import Link from 'next/link';
 import { useState, useEffect, useRef, FormEvent } from 'react';
 import { submitContactForm } from '@/app/actions';
+import { STATE_BASE_OPTIONS } from '@/lib/stateBaseCodes';
 
 export default function ContactPage() {
   const [formStatus, setFormStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [stateBaseCode, setStateBaseCode] = useState('NAT');
+  const [chapterLocked, setChapterLocked] = useState(false);
+
+  useEffect(() => {
+    fetch('/api/check-auth').then(async (response) => {
+      if (!response.ok) return;
+      const data = await response.json();
+      if (data.user?.stateBaseCode) {
+        setStateBaseCode(data.user.stateBaseCode);
+        setChapterLocked(true);
+      }
+    }).catch(() => undefined);
+  }, []);
   
   // 1. Hero Typewriter State
   const [typingText, setTypingText] = useState("");
@@ -167,6 +181,13 @@ export default function ContactPage() {
             <div className="form-container">
               <h3>Send Us a Message</h3>
               <form onSubmit={handleSubmit}>
+                <div className="form-group">
+                  <label htmlFor="contact-state-base">Chapter *</label>
+                  <select id="contact-state-base" name="stateBaseCode" value={stateBaseCode} onChange={(event) => setStateBaseCode(event.target.value)} disabled={chapterLocked} required>
+                    {STATE_BASE_OPTIONS.map(({ name, code }) => <option key={code} value={code}>{name}</option>)}
+                  </select>
+                  {chapterLocked && <input type="hidden" name="stateBaseCode" value={stateBaseCode} />}
+                </div>
                 <div className="form-group">
                   <label>Full Name *</label>
                   <input type="text" name="name" placeholder="Your full name" required />
