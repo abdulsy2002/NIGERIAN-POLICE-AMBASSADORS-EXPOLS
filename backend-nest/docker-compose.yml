@@ -1,0 +1,22 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: expols
+      POSTGRES_PASSWORD: expols_dev
+      POSTGRES_DB: expols
+    ports:
+      - "5432:5432"
+    volumes:
+      - expols-postgres-data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - expols-redis-data:/data
+
+volumes:
+  expols-postgres-data:
+  expols-redis-data:
